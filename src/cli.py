@@ -8,10 +8,15 @@ import dataclasses
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any
+
+from rich.console import Console
 
 from .collector import RepoCollector
 from .github_client import GitHubClient
+from .models import HealthScore, RepoMetrics
+from .reporter import render_markdown, render_rich
 from .scorer import score_repo
 
 
@@ -35,11 +40,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Output results as JSON",
     )
+    parser.add_argument(
+        "--markdown",
+        metavar="PATH",
+        type=Path,
+        default=None,
+        help="Write a GitHub-flavored Markdown report to PATH "
+        "(suitable for $GITHUB_STEP_SUMMARY or PR comments)",
+    )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable Rich color output in terminal",
+    )
     return parser.parse_args(argv)
 
 
 async def run(repository: str, token: str | None) -> dict[str, Any]:
-    """Collect repository metrics, score them, and return full payload."""
+    """Collect repository metrics, score them, and return full payload.
+
+    Returns a dict with serializable data plus live objects under
+    '_metrics_obj' and '_health_obj' for in-process rendering.
+    """
     resolved_token = token or os.getenv("GITHUB_TOKEN")
 
     async with GitHubClient(token=resolved_token) as gh_client:
@@ -65,6 +87,9 @@ async def run(repository: str, token: str | None) -> dict[str, Any]:
             "reset": rate_limit.reset,
             "used": rate_limit.used,
         },
+        # Live objects for reporter (stripped before JSON output)
+        "_metrics_obj": metrics,
+        "_health_obj": health_score,
     }
 
 
@@ -80,86 +105,38 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
+    # Extract live objects for rendering
+    metrics: RepoMetrics = result.pop("_metrics_obj")  # type: ignore[assignment]
+    health: HealthScore = result.pop("_health_obj")  # type: ignore[assignment]
+
+    # --markdown output
+    if args.markdown:
+        md = render_markdown(metrics, health)
+        try:
+            args.markdown.write_text(md, encoding="utf-8")
+        except Exception as exc:
+            print(f"Error writing markdown report: {exc}", file=sys.stderr)
+            return 1
+        # If --markdown was the only output requested (no --json),
+        # also print a short confirmation to stderr so CI logs are clear
+        if not args.json:
+            print(f"Wrote Markdown report to {args.markdown}", file=sys.stderr)
+
+    # --json output (do this after markdown so live objects are stripped)
     if args.json:
         print(json.dumps(result, indent=2))
         return 0
 
-    # Text output
-    repo = result["repository"]
-    hs = result["health_score"]
-    metrics = result["metrics"]
-
-    print(f"\nHealth Report for {repo['full_name']}")
-    print("=" * 60)
-    print(f"Description:    {repo['description'] or '(none)'}")
-    print(f"Stars:          {repo['stars']}")
-    print(f"Language:       {repo['language'] or '(unknown)'}")
-    print(f"Default branch: {repo['default_branch']}")
-    print()
-    grade = _grade(hs["total_score"])
-    print(f"Overall Health Score: {hs['total_score']:.1f} / 100  (Grade: {grade})")
-    print()
-
-    for key in ("documentation", "maintenance", "ci_cd", "governance"):
-        cat = hs[key]
-        print(f"{cat['name']:<18} {cat['score']:>5.1f} / {cat['max_score']:.0f}")
-        if cat["penalties"]:
-            for p in cat["penalties"]:
-                print(f"  ⚠ {p}")
-        print()
-
-    # Recommendations
-    all_recs: list[str] = []
-    for key in ("documentation", "maintenance", "ci_cd", "governance"):
-        all_recs.extend(hs[key]["recommendations"])
-
-    if all_recs:
-        # Deduplicate while preserving order
-        seen: set[str] = set()
-        unique_recs: list[str] = []
-        for r in all_recs:
-            if r not in seen:
-                seen.add(r)
-                unique_recs.append(r)
-        print("Recommendations:")
-        for i, rec in enumerate(unique_recs, 1):
-            print(f"  {i}. {rec}")
-        print()
-
-    # Raw metrics summary
-    cf = metrics["community_files"]
-    ci = metrics["ci_cd"]
-    maint = metrics["maintenance"]
-    print("Metrics snapshot:")
-    print(
-        f"  Community files: README={cf['readme']}, LICENSE={cf['license']}, "
-        f"CONTRIBUTING={cf['contributing']}, CoC={cf['code_of_conduct']}"
-    )
-    workflows = ", ".join(ci["workflow_files"]) or "(none)"
-    print(f"  CI/CD: {ci['workflow_count']} workflow(s) — {workflows}")
-    print(
-        f"  Maintenance: {maint['commits_last_90_days']} commits/90d, "
-        f"issues {maint['open_issues']} open / {maint['closed_issues']} closed, "
-        f"{maint['stale_prs']} stale PR(s)"
-    )
-    print()
+    # Default: Rich terminal output (unless --markdown was used without --json,
+    # in which case we still print the terminal report)
+    output = render_rich(metrics, health)
+    console = Console(no_color=args.no_color)
+    console.print(output, end="")
 
     rl = result["rate_limit"]
-    print(f"Rate limit: {rl['remaining']}/{rl['limit']} remaining")
-    print()
+    console.print(f"Rate limit: {rl['remaining']}/{rl['limit']} remaining\n", style="dim")
+
     return 0
-
-
-def _grade(score: float) -> str:
-    if score >= 90:
-        return "A"
-    if score >= 80:
-        return "B"
-    if score >= 70:
-        return "C"
-    if score >= 60:
-        return "D"
-    return "F"
 
 
 if __name__ == "__main__":
