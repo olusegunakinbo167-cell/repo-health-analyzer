@@ -107,7 +107,15 @@ class HealthScore:
     @property
     def grade(self) -> str:
         """Letter grade based on total score."""
-        s = self.total_score
+        # Grade against a 0–100 scale regardless of custom weights
+        # Normalize to 100-point scale
+        total_max = (
+            self.documentation.max_score
+            + self.maintenance.max_score
+            + self.ci_cd.max_score
+            + self.governance.max_score
+        )
+        s = (self.total_score / total_max * 100.0) if total_max else 0.0
         if s >= 90:
             return "A"
         if s >= 80:
@@ -129,3 +137,83 @@ class HealthScore:
         ):
             recs.extend(cat.recommendations)
         return recs
+
+    def categories(self) -> dict[str, CategoryScore]:
+        return {
+            "documentation": self.documentation,
+            "maintenance": self.maintenance,
+            "ci_cd": self.ci_cd,
+            "governance": self.governance,
+        }
+
+
+# ----------------------------------------------------------------------
+# Baseline comparison
+# ----------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class CategoryDelta:
+    """Score delta for a single category vs baseline."""
+
+    name: str
+    current: float
+    baseline: float
+    delta: float
+    max_score: float
+
+    @property
+    def sign(self) -> str:
+        if self.delta > 0.05:
+            return "+"
+        if self.delta < -0.05:
+            return ""
+        return "±"
+
+    @property
+    def trend(self) -> str:
+        if self.delta > 0.5:
+            return "▲"
+        if self.delta < -0.5:
+            return "▼"
+        return "■"
+
+
+@dataclass(slots=True)
+class BaselineDiff:
+    """Comparison of current HealthScore against a baseline."""
+
+    current_score: float
+    baseline_score: float
+    delta: float
+    baseline_commit: str | None = None
+    baseline_timestamp: str | None = None
+    categories: dict[str, CategoryDelta] = field(default_factory=dict)
+
+    @classmethod
+    def compare(
+        cls,
+        current: HealthScore,
+        baseline: HealthScore,
+        baseline_commit: str | None = None,
+        baseline_timestamp: str | None = None,
+    ) -> BaselineDiff:
+        cats: dict[str, CategoryDelta] = {}
+        for key in ("documentation", "maintenance", "ci_cd", "governance"):
+            cur_cat = current.categories()[key]
+            base_cat = baseline.categories()[key]
+            cats[key] = CategoryDelta(
+                name=cur_cat.name,
+                current=cur_cat.score,
+                baseline=base_cat.score,
+                delta=round(cur_cat.score - base_cat.score, 2),
+                max_score=cur_cat.max_score,
+            )
+        return cls(
+            current_score=current.total_score,
+            baseline_score=baseline.total_score,
+            delta=round(current.total_score - baseline.total_score, 2),
+            baseline_commit=baseline_commit,
+            baseline_timestamp=baseline_timestamp,
+            categories=cats,
+        )

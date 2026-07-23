@@ -15,8 +15,9 @@ from typing import Any
 from rich.console import Console
 
 from .collector import RepoCollector
+from .config import RepoConfig, fetch_remote_config, load_config
 from .github_client import GitHubClient
-from .models import HealthScore, RepoMetrics
+from .models import BaselineDiff, CategoryScore, HealthScore, RepoMetrics
 from .reporter import render_markdown, render_rich
 from .scorer import score_repo
 
@@ -65,6 +66,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "to a JSON file",
     )
     parser.add_argument(
+        "--config",
+        metavar="PATH",
+        type=Path,
+        default=None,
+        help="Path to local .repo-health.yml config file "
+        "(default: auto-fetch from target repo root)",
+    )
+    parser.add_argument(
+        "--baseline",
+        metavar="PATH",
+        type=Path,
+        default=None,
+        help="Path to a prior artifact JSON to compare against — "
+        "category score deltas are shown in terminal and Markdown output",
+    )
+    parser.add_argument(
         "--no-color",
         action="store_true",
         help="Disable Rich color output in terminal",
@@ -72,20 +89,37 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-async def run(repository: str, token: str | None) -> dict[str, Any]:
+async def run(
+    repository: str, token: str | None, config_path: Path | None = None
+) -> dict[str, Any]:
     """Collect repository metrics, score them, and return full payload.
 
     Returns a dict with serializable data plus live objects under
-    '_metrics_obj' and '_health_obj' for in-process rendering.
+    '_metrics_obj', '_health_obj', and '_config_obj' for in-process rendering.
     """
     resolved_token = token or os.getenv("GITHUB_TOKEN")
+
+    # Parse repository owner/name for config fetching
+    if "/" not in repository:
+        raise ValueError(f"Repository must be in 'owner/repo' format, got: {repository!r}")
+    owner, repo_name = repository.split("/", 1)
+
+    # Load config: explicit --config path, else try to fetch .repo-health.yml from target repo
+    if config_path and config_path.exists():
+        config = load_config(config_path)
+    else:
+        # Auto-fetch from target repo root
+        try:
+            config = await fetch_remote_config(owner, repo_name, token=resolved_token)
+        except Exception:
+            config = RepoConfig()
 
     async with GitHubClient(token=resolved_token) as gh_client:
         rate_limit = await gh_client.get_rate_limit()
         collector = RepoCollector(client=gh_client)
         metrics = await collector.collect_by_full_name(repository)
 
-    health_score = score_repo(metrics)
+    health_score = score_repo(metrics, config=config)
 
     return {
         "repository": {
@@ -98,6 +132,10 @@ async def run(repository: str, token: str | None) -> dict[str, Any]:
         },
         "metrics": dataclasses.asdict(metrics),
         "health_score": dataclasses.asdict(health_score),
+        "config": {
+            "weights": config.weights,
+            "ignore_rules": sorted(config.ignore_rules),
+        },
         "rate_limit": {
             "limit": rate_limit.limit,
             "remaining": rate_limit.remaining,
@@ -107,14 +145,47 @@ async def run(repository: str, token: str | None) -> dict[str, Any]:
         # Live objects for reporter (stripped before JSON output)
         "_metrics_obj": metrics,
         "_health_obj": health_score,
+        "_config_obj": config,
     }
+
+
+def load_baseline_health_score(path: Path) -> tuple[HealthScore, str | None, str | None]:
+    """Load a HealthScore from a prior artifact JSON.
+
+    Returns (health_score, commit_sha, timestamp).
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    # Artifact files have top-level health_score, metrics, repository, timestamp
+    hs_data = data.get("health_score", {})
+    repo_data = data.get("repository", {})
+    timestamp = data.get("timestamp")
+
+    def load_cat(key: str) -> CategoryScore:
+        c = hs_data.get(key, {})
+        return CategoryScore(
+            name=c.get("name", key.title()),
+            score=float(c.get("score", 0.0)),
+            max_score=float(c.get("max_score", 25.0)),
+            penalties=list(c.get("penalties", [])),
+            recommendations=list(c.get("recommendations", [])),
+        )
+
+    health = HealthScore(
+        total_score=float(hs_data.get("total_score", 0.0)),
+        documentation=load_cat("documentation"),
+        maintenance=load_cat("maintenance"),
+        ci_cd=load_cat("ci_cd"),
+        governance=load_cat("governance"),
+    )
+    commit_sha = repo_data.get("commit_sha")
+    return health, commit_sha, timestamp
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     try:
-        result = asyncio.run(run(args.repository, args.token))
+        result = asyncio.run(run(args.repository, args.token, args.config))
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
@@ -125,6 +196,30 @@ def main(argv: list[str] | None = None) -> int:
     # Extract live objects for rendering
     metrics: RepoMetrics = result.pop("_metrics_obj")  # type: ignore[assignment]
     health: HealthScore = result.pop("_health_obj")  # type: ignore[assignment]
+    config: RepoConfig = result.pop("_config_obj", None) or RepoConfig()  # type: ignore[assignment]
+
+    # Load baseline if requested
+    baseline_diff: BaselineDiff | None = None
+    if args.baseline:
+        try:
+            baseline_health, baseline_commit, baseline_ts = load_baseline_health_score(
+                args.baseline
+            )
+            baseline_diff = BaselineDiff.compare(
+                health,
+                baseline_health,
+                baseline_commit=baseline_commit,
+                baseline_timestamp=baseline_ts,
+            )
+            # Include baseline in result JSON
+            result["baseline"] = {
+                "score": baseline_diff.baseline_score,
+                "delta": baseline_diff.delta,
+                "commit_sha": baseline_diff.baseline_commit,
+                "timestamp": baseline_diff.baseline_timestamp,
+            }
+        except Exception as exc:
+            print(f"Warning: could not load baseline: {exc}", file=sys.stderr)
 
     # --save-artifact: write run telemetry JSON
     if args.save_artifact:
@@ -133,8 +228,11 @@ def main(argv: list[str] | None = None) -> int:
             "repository": result["repository"],
             "metrics": result["metrics"],
             "health_score": result["health_score"],
+            "config": result["config"],
             "tool_version": "0.1.0",
         }
+        if baseline_diff:
+            artifact["baseline"] = result.get("baseline")
         try:
             args.save_artifact.parent.mkdir(parents=True, exist_ok=True)
             args.save_artifact.write_text(
@@ -146,11 +244,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # --markdown output
     if args.markdown:
-        md = render_markdown(metrics, health)
+        md = render_markdown(metrics, health, baseline_diff=baseline_diff)
         try:
-            # If the path is a directory or ends with a separator, or
-            # GITHUB_STEP_SUMMARY env var points to it, append to it
-            # (GitHub Actions $GITHUB_STEP_SUMMARY is a file to append to)
+            # If the path matches $GITHUB_STEP_SUMMARY, append
             if str(args.markdown) == os.getenv("GITHUB_STEP_SUMMARY", ""):
                 with args.markdown.open("a", encoding="utf-8") as f:
                     f.write(md + "\n")
@@ -160,8 +256,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             print(f"Error writing markdown report: {exc}", file=sys.stderr)
             return 1
-        # If --markdown was the only output requested (no --json),
-        # also print a short confirmation to stderr so CI logs are clear
+        # Confirmation to stderr if markdown was sole output
         if not args.json and not args.save_artifact:
             print(f"Wrote Markdown report to {args.markdown}", file=sys.stderr)
 
@@ -171,7 +266,9 @@ def main(argv: list[str] | None = None) -> int:
         # Continue to quality gate check — don't return early
 
     # Quality gate check
-    gate_failed = health.total_score < args.min_score
+    # Gate is evaluated against the configured total weight sum, not fixed 100
+    total_max = sum(config.weights.values())
+    gate_failed = health.total_score < args.min_score * (total_max / 100.0)
     if gate_failed:
         gate_msg = (
             f"Quality gate FAILED: score {health.total_score:.1f} "
@@ -180,11 +277,10 @@ def main(argv: list[str] | None = None) -> int:
     else:
         gate_msg = None
 
-    # Terminal output (skip if --json was the only output and gate passed)
-    # Always show terminal output unless --json was explicitly requested alone
+    # Terminal output
     show_terminal = not args.json or gate_failed or args.markdown or args.save_artifact
     if show_terminal and not args.json:
-        output = render_rich(metrics, health)
+        output = render_rich(metrics, health, baseline_diff=baseline_diff)
         console = Console(no_color=args.no_color)
         console.print(output, end="")
         rl = result["rate_limit"]

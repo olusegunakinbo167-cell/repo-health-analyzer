@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from .models import HealthScore, RepoMetrics
+from .models import BaselineDiff, HealthScore, RepoMetrics
 
 
 def _score_style(score: float) -> str:
@@ -26,7 +26,19 @@ def _category_score_style(score: float, max_score: float = 25.0) -> str:
     return _score_style(pct)
 
 
-def render_rich(metrics: RepoMetrics, health: HealthScore) -> str:
+def _delta_style(delta: float) -> str:
+    if delta > 0.5:
+        return "green"
+    if delta < -0.5:
+        return "red"
+    return "dim"
+
+
+def render_rich(
+    metrics: RepoMetrics,
+    health: HealthScore,
+    baseline_diff: BaselineDiff | None = None,
+) -> str:
     """Render a Rich-formatted terminal report. Returns the rendered string."""
     buf = StringIO()
     console = Console(file=buf, force_terminal=True, color_system="truecolor", width=100)
@@ -37,44 +49,75 @@ def render_rich(metrics: RepoMetrics, health: HealthScore) -> str:
         f"[bold]Health Report for {metrics.full_name}[/bold]",
         style="cyan",
     )
-    console.print(f"Description: {metrics.description or '(none)'}")
-    console.print(f"Stars: {metrics.stars}  •  Language: {metrics.language or 'unknown'}  •  "
-                  f"Branch: {metrics.default_branch}")
+    desc = metrics.description or "(none)"
+    sha = f" @ {metrics.commit_sha[:7]}" if metrics.commit_sha else ""
+    console.print(f"Description: {desc}")
+    console.print(
+        f"Stars: {metrics.stars}  •  Language: {metrics.language or 'unknown'}  •  "
+        f"Branch: {metrics.default_branch}{sha}"
+    )
     console.print()
 
     # Overall score
     score_color = _score_style(health.total_score)
-    console.print(
-        Text(
-            f"Overall Health Score: {health.total_score:.1f} / 100  "
-            f"(Grade: {health.grade})",
-            style=f"bold {score_color}",
-        )
-    )
+    score_text = f"Overall Health Score: {health.total_score:.1f} / 100  (Grade: {health.grade})"
+    if baseline_diff:
+        d = baseline_diff.delta
+        d_color = _delta_style(d)
+        sign = "+" if d > 0 else ""
+        score_text += f" [{d_color}]({sign}{d:.1f} vs baseline)[/{d_color}]"
+    console.print(Text.from_markup(score_text, style=f"bold {score_color}"))
     console.print()
 
     # Category breakdown table
+    has_baseline = baseline_diff is not None
     table = Table(show_header=True, header_style="bold")
     table.add_column("Category", style="bold", width=16)
-    table.add_column("Score", justify="right", width=12)
-    table.add_column("Status", justify="center", width=10)
-    table.add_column("Issues", width=60)
+    table.add_column("Score", justify="right", width=14)
+    if has_baseline:
+        table.add_column("Δ", justify="right", width=8)
+    table.add_column("Status", justify="center", width=8)
+    table.add_column("Issues", width=50 if has_baseline else 60)
 
-    for cat in (
+    cat_keys = ("documentation", "maintenance", "ci_cd", "governance")
+    cat_objs = (
         health.documentation,
         health.maintenance,
         health.ci_cd,
         health.governance,
-    ):
+    )
+
+    for key, cat in zip(cat_keys, cat_objs, strict=False):
         pct = cat.percentage
         status = "✓" if pct >= 80 else "⚠" if pct >= 60 else "✗"
         color = _category_score_style(cat.score, cat.max_score)
         score_text = f"[{color}]{cat.score:.1f} / {cat.max_score:.0f}[/{color}]"
         issues = "; ".join(cat.penalties) if cat.penalties else "—"
-        table.add_row(cat.name, score_text, f"[{color}]{status}[/{color}]", issues)
+
+        row: list[str] = [cat.name, score_text]
+        if has_baseline:
+            cd = baseline_diff.categories[key]  # type: ignore[index]
+            d_color = _delta_style(cd.delta)
+            d_sign = "+" if cd.delta > 0 else ""
+            delta_text = f"[{d_color}]{d_sign}{cd.delta:.1f}[/{d_color}]"
+            row.append(delta_text)
+        row.extend([f"[{color}]{status}[/{color}]", issues])
+        table.add_row(*row)
 
     console.print(table)
     console.print()
+
+    # Baseline summary
+    if baseline_diff:
+        b_commit = baseline_diff.baseline_commit or "unknown"
+        b_ts = baseline_diff.baseline_timestamp or ""
+        b_short = b_commit[:7] if len(b_commit) > 7 else b_commit
+        console.print(
+            f"[dim]Baseline: {baseline_diff.baseline_score:.1f} "
+            f"({b_short}{' @ ' + b_ts[:10] if b_ts else ''})  "
+            f"Δ {baseline_diff.delta:+.1f}[/dim]"
+        )
+        console.print()
 
     # Recommendations
     recs = health.all_recommendations()
@@ -112,7 +155,11 @@ def render_rich(metrics: RepoMetrics, health: HealthScore) -> str:
     return buf.getvalue()
 
 
-def render_markdown(metrics: RepoMetrics, health: HealthScore) -> str:
+def render_markdown(
+    metrics: RepoMetrics,
+    health: HealthScore,
+    baseline_diff: BaselineDiff | None = None,
+) -> str:
     """Render a GitHub-flavored Markdown report.
 
     Includes collapsible diagnostic sections suitable for $GITHUB_STEP_SUMMARY
@@ -136,43 +183,104 @@ def render_markdown(metrics: RepoMetrics, health: HealthScore) -> str:
         f"![Grade](https://img.shields.io/badge/Grade-{health.grade}-blue)"
     )
     lines.append("")
-    lines.append(f"**Description:** {metrics.description or '_none_'}  ")
-    lines.append(f"**Stars:** {metrics.stars}  |  "
-                 f"**Language:** {metrics.language or 'unknown'}  |  "
-                 f"**Branch:** `{metrics.default_branch}`")
+    desc = metrics.description or "_none_"
+    sha = f" @ `{metrics.commit_sha[:7]}`" if metrics.commit_sha else ""
+    lines.append(f"**Description:** {desc}  ")
+    lines.append(
+        f"**Stars:** {metrics.stars}  |  "
+        f"**Language:** {metrics.language or 'unknown'}  |  "
+        f"**Branch:** `{metrics.default_branch}`{sha}"
+    )
     lines.append("")
-    lines.append(f"### Overall Score: {health.total_score:.1f} / 100 — Grade **{health.grade}**")
+
+    # Overall score with baseline
+    score_line = f"### Overall Score: {health.total_score:.1f} / 100 — Grade **{health.grade}**"
+    if baseline_diff:
+        d = baseline_diff.delta
+        arrow = "▲" if d > 0.5 else "▼" if d < -0.5 else "■"
+        sign = "+" if d > 0 else ""
+        score_line += f"  {arrow} {sign}{d:.1f} vs baseline"
+        if baseline_diff.baseline_commit:
+            bc = baseline_diff.baseline_commit[:7]
+            score_line += f" (`{bc}`)"
+    lines.append(score_line)
     lines.append("")
 
     # Category breakdown table
-    lines.append("| Category | Score | Status |")
-    lines.append("|---|---:|---|")
-    for cat in (
+    has_baseline = baseline_diff is not None
+    if has_baseline:
+        lines.append("| Category | Score | Δ | Status |")
+        lines.append("|---|---:|---:|---|")
+    else:
+        lines.append("| Category | Score | Status |")
+        lines.append("|---|---:|---|")
+
+    cat_keys = ("documentation", "maintenance", "ci_cd", "governance")
+    cat_objs = (
         health.documentation,
         health.maintenance,
         health.ci_cd,
         health.governance,
-    ):
+    )
+
+    for key, cat in zip(cat_keys, cat_objs, strict=False):
         pct = cat.percentage
         status = "✅" if pct >= 80 else "⚠️" if pct >= 60 else "❌"
-        lines.append(f"| {cat.name} | {cat.score:.1f} / {cat.max_score:.0f} | {status} |")
+        if has_baseline:
+            cd = baseline_diff.categories[key]  # type: ignore[index]
+            d_sign = "+" if cd.delta > 0 else ""
+            delta_col = f"{d_sign}{cd.delta:.1f} {cd.trend}"
+            lines.append(
+                f"| {cat.name} | {cat.score:.1f} / {cat.max_score:.0f} | "
+                f"{delta_col} | {status} |"
+            )
+        else:
+            lines.append(f"| {cat.name} | {cat.score:.1f} / {cat.max_score:.0f} | {status} |")
     lines.append("")
 
+    # Baseline summary box
+    if baseline_diff:
+        lines.append("<details>")
+        lines.append("<summary><b>📊 Baseline Comparison</b></summary>")
+        lines.append("")
+        lines.append("| Metric | Baseline | Current | Δ |")
+        lines.append("|---|---:|---:|---:|")
+        bs = baseline_diff.baseline_score
+        cs = baseline_diff.current_score
+        d = baseline_diff.delta
+        lines.append(f"| **Overall** | {bs:.1f} | {cs:.1f} | {d:+.1f} |")
+        for key in cat_keys:
+            cd = baseline_diff.categories[key]
+            lines.append(
+                f"| {cd.name} | {cd.baseline:.1f} | {cd.current:.1f} | {cd.delta:+.1f} |"
+            )
+        if baseline_diff.baseline_commit:
+            lines.append("")
+            lines.append(
+                f"_Baseline commit: `{baseline_diff.baseline_commit}`"
+                + (
+                    f" @ {baseline_diff.baseline_timestamp[:10]}"
+                    if baseline_diff.baseline_timestamp
+                    else ""
+                )
+                + "_"
+            )
+        lines.append("")
+        lines.append("</details>")
+        lines.append("")
+
     # Collapsible diagnostics per category
-    for cat in (
-        health.documentation,
-        health.maintenance,
-        health.ci_cd,
-        health.governance,
-    ):
+    for key, cat in zip(cat_keys, cat_objs, strict=False):
         pct = cat.percentage
         icon = "✅" if pct >= 80 else "⚠️" if pct >= 60 else "❌"
+        summary_text = f"<summary><b>{icon} {cat.name} — {cat.score:.1f} / {cat.max_score:.0f}"
+        if has_baseline:
+            cd = baseline_diff.categories[key]  # type: ignore[index]
+            d_sign = "+" if cd.delta > 0 else ""
+            summary_text += f" ({d_sign}{cd.delta:.1f})"
+        summary_text += "</b></summary>"
         lines.append("<details>")
-        summary = (
-            f"<summary><b>{icon} {cat.name} — "
-            f"{cat.score:.1f} / {cat.max_score:.0f}</b></summary>"
-        )
-        lines.append(summary)
+        lines.append(summary_text)
         lines.append("")
         if cat.penalties:
             lines.append("**Issues:**")
@@ -228,6 +336,8 @@ def render_markdown(metrics: RepoMetrics, health: HealthScore) -> str:
     lines.append(f"| Closed issues | {maint.closed_issues} |")
     lines.append(f"| Issue close ratio | {maint.issue_close_ratio:.0%} |")
     lines.append(f"| Stale PRs (>30d) | {maint.stale_prs} |")
+    if metrics.commit_sha:
+        lines.append(f"| Commit SHA | `{metrics.commit_sha}` |")
     lines.append("")
     lines.append("</details>")
     lines.append("")
