@@ -1,0 +1,80 @@
+name: Repository Health Check
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly health check, Mondays at 09:00 UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install repo-health-analyzer
+        run: pip install -e .
+
+      - name: Run health analyzer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Analyze the current repository
+          # Adjust --min-score to your quality gate threshold
+          repo_health_analyzer ${{ github.repository }} \
+            --min-score 70 \
+            --save-artifact health-artifact.json \
+            --markdown health-report.md \
+            || HEALTH_EXIT=$?
+          
+          # Always publish the markdown report to step summary,
+          # even if the quality gate failed
+          if [ -f health-report.md ]; then
+            cat health-report.md >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Fail the job if quality gate failed
+          if [ -n "$HEALTH_EXIT" ]; then
+            exit $HEALTH_EXIT
+          fi
+
+      - name: Upload health artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-check-results
+          path: |
+            health-artifact.json
+            health-report.md
+          retention-days: 30
+
+      - name: Comment PR with health report
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('health-report.md')) return;
+            
+            const report = fs.readFileSync('health-report.md', 'utf8');
+            const body = `### 📊 Repository Health Report\n\n${report}`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
