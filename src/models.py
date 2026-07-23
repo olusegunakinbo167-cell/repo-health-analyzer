@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(slots=True)
@@ -70,3 +70,62 @@ class RepoMetrics:
     community_files: CommunityFiles
     ci_cd: CiCdSetup
     maintenance: MaintenanceActivity
+
+
+# ----------------------------------------------------------------------
+# Scoring models
+# ----------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class CategoryScore:
+    """Score breakdown for a single health category."""
+
+    name: str
+    score: float  # 0.0–25.0
+    max_score: float = 25.0
+    penalties: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+
+    @property
+    def percentage(self) -> float:
+        if self.max_score == 0:
+            return 0.0
+        return (self.score / self.max_score) * 100.0
+
+
+@dataclass(slots=True)
+class HealthScore:
+    """Overall repository health score (0–100)."""
+
+    total_score: float
+    documentation: CategoryScore
+    maintenance: CategoryScore
+    ci_cd: CategoryScore
+    governance: CategoryScore
+
+    @property
+    def grade(self) -> str:
+        """Letter grade based on total score."""
+        s = self.total_score
+        if s >= 90:
+            return "A"
+        if s >= 80:
+            return "B"
+        if s >= 70:
+            return "C"
+        if s >= 60:
+            return "D"
+        return "F"
+
+    def all_recommendations(self) -> list[str]:
+        """Flattened list of all recommendations across categories."""
+        recs: list[str] = []
+        for cat in (
+            self.documentation,
+            self.maintenance,
+            self.ci_cd,
+            self.governance,
+        ):
+            recs.extend(cat.recommendations)
+        return recs
