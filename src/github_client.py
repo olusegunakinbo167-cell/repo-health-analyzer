@@ -23,6 +23,7 @@ class RepoMetadata:
     stars: int
     language: str | None
     default_branch: str
+    commit_sha: str | None = None
 
 
 @dataclass
@@ -88,15 +89,29 @@ class GitHubClient:
             used=core["used"],
         )
 
-    async def get_repo(self, owner: str, repo: str) -> RepoMetadata:
+    async def get_head_sha(self, owner: str, repo: str, branch: str) -> str | None:
+        """Get the HEAD commit SHA for a branch.
+
+        Returns None if the branch cannot be resolved.
+        """
+        resp = await self._client.get(f"/repos/{owner}/{repo}/commits/{branch}")
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        return data.get("sha")
+
+    async def get_repo(
+        self, owner: str, repo: str, include_sha: bool = False
+    ) -> RepoMetadata:
         """Fetch basic repository metadata.
 
         Args:
             owner: Repository owner / organization.
             repo: Repository name.
+            include_sha: If True, also fetch the HEAD commit SHA of the default branch.
 
         Returns:
-            RepoMetadata containing description, stars, language, and default branch.
+            RepoMetadata containing description, stars, language, default branch, and commit SHA.
 
         Raises:
             httpx.HTTPStatusError: If the repository is not found or API request fails.
@@ -104,12 +119,17 @@ class GitHubClient:
         resp = await self._client.get(f"/repos/{owner}/{repo}")
         resp.raise_for_status()
         data = resp.json()
+        default_branch = data["default_branch"]
+        commit_sha: str | None = None
+        if include_sha:
+            commit_sha = await self.get_head_sha(owner, repo, default_branch)
         return RepoMetadata(
             full_name=data["full_name"],
             description=data.get("description"),
             stars=data["stargazers_count"],
             language=data.get("language"),
-            default_branch=data["default_branch"],
+            default_branch=default_branch,
+            commit_sha=commit_sha,
         )
 
     async def get_repo_by_full_name(self, full_name: str) -> RepoMetadata:

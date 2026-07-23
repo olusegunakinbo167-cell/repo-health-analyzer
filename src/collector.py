@@ -37,7 +37,7 @@ class RepoCollector:
             raise RuntimeError("Collector must be used as an async context manager")
 
         # Base metadata
-        meta = await self._client.get_repo(owner, repo)
+        meta = await self._client.get_repo(owner, repo, include_sha=True)
 
         # Community files
         community = await self._client.check_community_files(owner, repo)
@@ -54,6 +54,7 @@ class RepoCollector:
             stars=meta.stars,
             language=meta.language,
             default_branch=meta.default_branch,
+            commit_sha=meta.commit_sha,
             community_files=community,
             ci_cd=ci_cd,
             maintenance=maintenance,

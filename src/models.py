@@ -66,10 +66,10 @@ class RepoMetrics:
     stars: int
     language: str | None
     default_branch: str
-
     community_files: CommunityFiles
     ci_cd: CiCdSetup
     maintenance: MaintenanceActivity
+    commit_sha: str | None = None
 
 
 # ----------------------------------------------------------------------

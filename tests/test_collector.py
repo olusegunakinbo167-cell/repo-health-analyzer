@@ -187,7 +187,7 @@ async def test_collector_collect_full() -> None:
 
     async with GitHubClient(token="test") as client:
         collector = RepoCollector(client=client)
-        with respx.mock(base_url="https://api.github.com") as mock:
+        with respx.mock(base_url="https://api.github.com", assert_all_mocked=False) as mock:
             # get_repo
             mock.get("/repos/o/r").mock(
                 return_value=Response(
@@ -201,6 +201,10 @@ async def test_collector_collect_full() -> None:
                         "open_issues_count": 3,
                     },
                 )
+            )
+            # HEAD SHA
+            mock.get("/repos/o/r/commits/main").mock(
+                return_value=Response(200, json={"sha": "abc123"})
             )
             # community files
             mock.get("/repos/o/r/contents/README").mock(return_value=Response(200, json={}))

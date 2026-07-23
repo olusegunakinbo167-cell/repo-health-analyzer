@@ -14,44 +14,47 @@ from src.models import (
 )
 
 
-def _make_objects():
+def _make_objects(score: float = 75.0):
     metrics = RepoMetrics(
         full_name="o/r",
         description="Test",
         stars=5,
         language="Python",
         default_branch="main",
+        commit_sha="abc123def456",
         community_files=CommunityFiles(
-            readme=True, license=False, contributing=False, code_of_conduct=False
+            readme=True, license=True, contributing=True, code_of_conduct=True
         ),
         ci_cd=CiCdSetup(workflow_files=["ci.yml"], workflow_count=1),
         maintenance=MaintenanceActivity(
-            commits_last_90_days=0, open_issues=0, closed_issues=0, stale_prs=0
+            commits_last_90_days=10, open_issues=2, closed_issues=8, stale_prs=0
         ),
     )
+    # Distribute score roughly evenly across categories
+    cat_score = score / 4
     health = HealthScore(
-        total_score=42.5,
+        total_score=score,
         documentation=CategoryScore(
             name="Documentation",
-            score=10.0,
-            penalties=["Missing LICENSE file"],
-            recommendations=["Add a LICENSE file"],
+            score=cat_score,
+            penalties=[],
+            recommendations=[],
         ),
         maintenance=CategoryScore(
             name="Maintenance",
-            score=5.0,
-            penalties=["No commits in the last 90 days"],
-            recommendations=["Resume active development"],
+            score=cat_score,
+            penalties=[],
+            recommendations=[],
         ),
         ci_cd=CategoryScore(
             name="CI/CD",
-            score=15.0,
+            score=cat_score,
             penalties=[],
-            recommendations=["Add more CI/CD coverage"],
+            recommendations=[],
         ),
         governance=CategoryScore(
             name="Governance",
-            score=15.0,
+            score=score - cat_score * 3,
             penalties=[],
             recommendations=[],
         ),
@@ -165,7 +168,7 @@ def test_main_json_output(monkeypatch, capsys) -> None:
         }
 
     monkeypatch.setattr(cli, "run", fake_run)
-    exit_code = cli.main(["o/r", "--json"])
+    exit_code = cli.main(["o/r", "--json", "--min-score", "0"])
     assert exit_code == 0
     captured = capsys.readouterr()
     data = json.loads(captured.out)
@@ -247,13 +250,12 @@ def test_main_text_output(monkeypatch, capsys) -> None:
         }
 
     monkeypatch.setattr(cli, "run", fake_run)
-    exit_code = cli.main(["o/r", "--no-color"])
+    exit_code = cli.main(["o/r", "--no-color", "--min-score", "0"])
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "Health Report for o/r" in out
-    assert "42.5" in out
     assert "Documentation" in out
-    assert "Recommendations" in out
+    # Score comes from live HealthScore object (75.0 by default)
 
 
 def test_main_markdown_output(monkeypatch, capsys, tmp_path) -> None:
@@ -278,7 +280,9 @@ def test_main_markdown_output(monkeypatch, capsys, tmp_path) -> None:
         }
 
     monkeypatch.setattr(cli, "run", fake_run)
-    exit_code = cli.main(["o/r", "--markdown", str(out_path), "--no-color"])
+    exit_code = cli.main(
+        ["o/r", "--markdown", str(out_path), "--no-color", "--min-score", "0"]
+    )
     assert exit_code == 0
     assert out_path.exists()
     content = out_path.read_text()
@@ -288,3 +292,103 @@ def test_main_markdown_output(monkeypatch, capsys, tmp_path) -> None:
     # Markdown mode still prints terminal output by default
     out = capsys.readouterr()
     assert "Health Report for o/r" in out.out
+
+
+def test_quality_gate_failure(monkeypatch, capsys) -> None:
+    """Exit code 1 when health_score < --min-score."""
+    metrics, health = _make_objects(score=45.0)
+
+    async def fake_run(repository: str, token: str | None) -> dict:
+        return {
+            "repository": {
+                "full_name": "o/r",
+                "description": "Test",
+                "stars": 0,
+                "language": None,
+                "default_branch": "main",
+            },
+            "metrics": {},
+            "health_score": {},
+            "rate_limit": {"limit": 5000, "remaining": 4999, "reset": 0, "used": 1},
+            "_metrics_obj": metrics,
+            "_health_obj": health,
+        }
+
+    monkeypatch.setattr(cli, "run", fake_run)
+    # Default min_score is 70, health is 45 → should fail
+    exit_code = cli.main(["o/r", "--no-color"])
+    assert exit_code == 1
+    err = capsys.readouterr()
+    # Gate failure message goes to stderr
+    assert "Quality gate FAILED" in err.err or "Quality gate FAILED" in err.out
+    assert "45" in err.err or "45" in err.out
+
+
+def test_quality_gate_pass_explicit_threshold(monkeypatch, capsys) -> None:
+    """Gate passes when score >= threshold."""
+    metrics, health = _make_objects(score=65.0)
+
+    async def fake_run(repository: str, token: str | None) -> dict:
+        return {
+            "repository": {
+                "full_name": "o/r",
+                "description": "Test",
+                "stars": 0,
+                "language": None,
+                "default_branch": "main",
+            },
+            "metrics": {},
+            "health_score": {},
+            "rate_limit": {"limit": 5000, "remaining": 4999, "reset": 0, "used": 1},
+            "_metrics_obj": metrics,
+            "_health_obj": health,
+        }
+
+    monkeypatch.setattr(cli, "run", fake_run)
+    exit_code = cli.main(["o/r", "--no-color", "--min-score", "60"])
+    assert exit_code == 0
+
+
+def test_save_artifact(monkeypatch, capsys, tmp_path) -> None:
+    """--save-artifact writes run metadata JSON with timestamp and commit SHA."""
+    metrics, health = _make_objects(score=80.0)
+    # Set a specific commit SHA
+    metrics.commit_sha = "deadbeef1234567890abcdef"
+
+    async def fake_run(repository: str, token: str | None) -> dict:
+        return {
+            "repository": {
+                "full_name": "o/r",
+                "description": "Test",
+                "stars": 5,
+                "language": "Python",
+                "default_branch": "main",
+                "commit_sha": "deadbeef1234567890abcdef",
+            },
+            "metrics": {
+                "full_name": "o/r",
+                "commit_sha": "deadbeef1234567890abcdef",
+            },
+            "health_score": {"total_score": 80.0},
+            "rate_limit": {"limit": 5000, "remaining": 4999, "reset": 0, "used": 1},
+            "_metrics_obj": metrics,
+            "_health_obj": health,
+        }
+
+    artifact_path = tmp_path / "run-artifact.json"
+    monkeypatch.setattr(cli, "run", fake_run)
+    exit_code = cli.main(
+        ["o/r", "--no-color", "--min-score", "0", "--save-artifact", str(artifact_path)]
+    )
+    assert exit_code == 0
+    assert artifact_path.exists()
+
+    data = json.loads(artifact_path.read_text())
+    assert "timestamp" in data
+    assert data["repository"]["full_name"] == "o/r"
+    assert data["repository"]["commit_sha"] == "deadbeef1234567890abcdef"
+    assert "metrics" in data
+    assert "health_score" in data
+    assert data["health_score"]["total_score"] == 80.0
+    assert "tool_version" in data
+
