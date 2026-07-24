@@ -150,6 +150,17 @@ def render_rich(
         f"issues {maint.open_issues} open / {maint.closed_issues} closed, "
         f"{maint.stale_prs} stale PR(s)"
     )
+    # Academic impact
+    academic = getattr(metrics, "academic_impact", None)
+    if academic and academic.paper_count > 0:
+        fos_str = ", ".join(academic.fields_of_study[:3])
+        if len(academic.fields_of_study) > 3:
+            fos_str += ", …"
+        console.print(
+            f"  Academic: {academic.resolved_count}/{academic.paper_count} paper(s) "
+            f"resolved, {academic.total_citations} total citations"
+            + (f" — {fos_str}" if fos_str else "")
+        )
     console.print()
 
     return buf.getvalue()
@@ -338,6 +349,25 @@ def render_markdown(
     lines.append(f"| Stale PRs (>30d) | {maint.stale_prs} |")
     if metrics.commit_sha:
         lines.append(f"| Commit SHA | `{metrics.commit_sha}` |")
+    # Academic impact
+    academic = getattr(metrics, "academic_impact", None)
+    if academic and academic.paper_count > 0:
+        lines.append(f"| Referenced papers | {academic.paper_count} |")
+        lines.append(f"| Resolved papers | {academic.resolved_count} |")
+        lines.append(f"| Total citations | {academic.total_citations} |")
+        lines.append(
+            f"| Avg citations/paper | {academic.avg_citations_per_paper:.1f} |"
+        )
+        if academic.fields_of_study:
+            fos = ", ".join(academic.fields_of_study[:5])
+            if len(academic.fields_of_study) > 5:
+                fos += ", …"
+            lines.append(f"| Fields of study | {fos} |")
+        lines.append(
+            f"| Open-access papers | {academic.open_access_count} / {academic.resolved_count} |"
+        )
+        recent = academic.recent_papers_count()
+        lines.append(f"| Recent papers (<3yr) | {recent} |")
     lines.append("")
     lines.append("</details>")
     lines.append("")

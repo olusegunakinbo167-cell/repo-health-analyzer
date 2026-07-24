@@ -38,6 +38,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="GitHub personal access token (default: GITHUB_TOKEN env var)",
     )
     parser.add_argument(
+        "--s2-api-key",
+        dest="s2_api_key",
+        default=None,
+        help="Semantic Scholar API key for academic impact metrics "
+        "(default: S2_API_KEY / SEMANTIC_SCHOLAR_API_KEY env var)",
+    )
+    parser.add_argument(
+        "--skip-academic",
+        action="store_true",
+        help="Skip academic impact / paper reference scanning (faster, no S2 API calls)",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Output results as JSON",
@@ -90,7 +102,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 async def run(
-    repository: str, token: str | None, config_path: Path | None = None
+    repository: str,
+    token: str | None,
+    config_path: Path | None = None,
+    s2_api_key: str | None = None,
+    skip_academic: bool = False,
 ) -> dict[str, Any]:
     """Collect repository metrics, score them, and return full payload.
 
@@ -116,7 +132,11 @@ async def run(
 
     async with GitHubClient(token=resolved_token) as gh_client:
         rate_limit = await gh_client.get_rate_limit()
-        collector = RepoCollector(client=gh_client)
+        collector = RepoCollector(
+            client=gh_client,
+            s2_api_key=s2_api_key,
+            skip_academic_impact=skip_academic,
+        )
         metrics = await collector.collect_by_full_name(repository)
 
     health_score = score_repo(metrics, config=config)
@@ -185,7 +205,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     try:
-        result = asyncio.run(run(args.repository, args.token, args.config))
+        result = asyncio.run(
+            run(
+                args.repository,
+                args.token,
+                args.config,
+                s2_api_key=getattr(args, "s2_api_key", None),
+                skip_academic=getattr(args, "skip_academic", False),
+            )
+        )
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
