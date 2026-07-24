@@ -2,17 +2,36 @@
 
 from __future__ import annotations
 
+import os
+
 from .github_client import GitHubClient
+from .metrics.academic_impact import extract_from_files, resolve_paper_references
 from .models import RepoMetrics
+from .semantic_scholar_client import SemanticScholarClient, SemanticScholarAPIError
 
 
 class RepoCollector:
     """Orchestrates collection of repository health metrics."""
 
-    def __init__(self, client: GitHubClient | None = None, token: str | None = None):
+    def __init__(
+        self,
+        client: GitHubClient | None = None,
+        token: str | None = None,
+        *,
+        s2_api_key: str | None = None,
+        skip_academic_impact: bool = False,
+    ):
         self._client = client
         self._token = token
         self._owns_client = client is None
+        self._s2_api_key = (
+            s2_api_key
+            or os.getenv("S2_API_KEY")
+            or os.getenv("SEMANTIC_SCHOLAR_API_KEY")
+        )
+        self._skip_academic = skip_academic_impact or (
+            os.getenv("REPO_HEALTH_SKIP_ACADEMIC", "").lower() in ("1", "true", "yes")
+        )
 
     async def __aenter__(self) -> RepoCollector:
         if self._client is None:
@@ -48,6 +67,30 @@ class RepoCollector:
         # Maintenance
         maintenance = await self._client.get_maintenance_activity(owner, repo)
 
+        # Academic impact (paper references in docs)
+        academic_impact = None
+        if not self._skip_academic:
+            try:
+                doc_files = await self._client.get_documentation_text_files(owner, repo)
+                if doc_files:
+                    paper_refs = extract_from_files(doc_files)
+                    if paper_refs:
+                        # Resolve via S2 (with graceful degradation on rate limits)
+                        try:
+                            async with SemanticScholarClient(
+                                api_key=self._s2_api_key
+                            ) as s2:
+                                academic_impact = await resolve_paper_references(
+                                    paper_refs, s2_client=s2
+                                )
+                        except SemanticScholarAPIError:
+                            # S2 unavailable / rate limited — skip academic impact
+                            # rather than failing the entire collection
+                            academic_impact = None
+            except Exception:
+                # Never let academic impact collection break the main flow
+                academic_impact = None
+
         return RepoMetrics(
             full_name=meta.full_name,
             description=meta.description,
@@ -58,6 +101,7 @@ class RepoCollector:
             community_files=community,
             ci_cd=ci_cd,
             maintenance=maintenance,
+            academic_impact=academic_impact,
         )
 
     async def collect_by_full_name(self, full_name: str) -> RepoMetrics:

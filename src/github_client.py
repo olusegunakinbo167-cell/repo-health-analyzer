@@ -296,3 +296,82 @@ class GitHubClient:
             closed_issues=closed_issues,
             stale_prs=stale_prs,
         )
+
+    # ------------------------------------------------------------------
+    # Academic impact / documentation text extraction
+    # ------------------------------------------------------------------
+
+    async def _get_file_content(
+        self, owner: str, repo: str, path: str
+    ) -> str | None:
+        """Fetch raw text content of a file via GitHub contents API.
+
+        Returns None if file does not exist or is not decodable.
+        """
+        import base64
+
+        resp = await self._client.get(f"/repos/{owner}/{repo}/contents/{path}")
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if not isinstance(data, dict):
+            return None
+        content_b64 = data.get("content")
+        encoding = data.get("encoding")
+        if not content_b64 or encoding != "base64":
+            return None
+        try:
+            return base64.b64decode(content_b64).decode("utf-8", errors="replace")
+        except Exception:
+            return None
+
+    async def get_documentation_text_files(
+        self, owner: str, repo: str
+    ) -> dict[str, str]:
+        """Fetch text content of documentation files for paper reference scanning.
+
+        Checks common documentation locations:
+        - README variants (README, README.md, README.rst)
+        - CONTRIBUTING.md, CODE_OF_CONDUCT.md
+        - CITATION / CITATION.cff / CITATION.bib
+        - docs/ directory: README.md, references.md, papers.md
+
+        Returns:
+            Mapping of filename → file content (only files that exist).
+        """
+        files_to_try = [
+            # Root README
+            "README",
+            "README.md",
+            "README.rst",
+            "readme.md",
+            "Readme.md",
+            # Community files
+            "CONTRIBUTING.md",
+            "CODE_OF_CONDUCT.md",
+            # Citation files
+            "CITATION",
+            "CITATION.md",
+            "CITATION.cff",
+            "CITATION.bib",
+            "CITATIONS",
+            "CITATIONS.md",
+            "CITATIONS.bib",
+            "REFERENCES",
+            "REFERENCES.md",
+            "REFERENCES.bib",
+            # docs/ subdirectory
+            "docs/README.md",
+            "docs/references.md",
+            "docs/papers.md",
+            "docs/citations.md",
+        ]
+
+        result: dict[str, str] = {}
+        for path in files_to_try:
+            content = await self._get_file_content(owner, repo, path)
+            if content:
+                result[path] = content
+
+        return result
+

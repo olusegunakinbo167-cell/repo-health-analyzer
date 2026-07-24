@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .config import RepoConfig
+from .metrics.academic_impact import score_academic_impact_bonus
 from .metrics.bus_factor import calculate_bus_factor
 from .models import CategoryScore, HealthScore, RepoMetrics
 
@@ -25,6 +26,10 @@ def score_documentation(
     - CONTRIBUTING.md: 5 pts
     - CODE_OF_CONDUCT.md: 5 pts
     Total raw: 25 pts (scaled to config weight)
+
+    Academic impact bonus (Option B): up to +5 pts, capped at category max.
+    Repos that reference research papers in their docs get a bonus reflecting
+    academic grounding.  See metrics.academic_impact.score_academic_impact_bonus.
     """
     config = config or RepoConfig()
     cf = metrics.community_files
@@ -61,6 +66,26 @@ def score_documentation(
         recommendations.append(
             "Add CODE_OF_CONDUCT.md to set community standards (e.g., Contributor Covenant)"
         )
+
+    # Academic impact bonus (Option B) — up to +5 pts, capped at 25 raw
+    academic_impact = getattr(metrics, "academic_impact", None)
+    ignore_academic = config.is_ignored("academic_impact") if config else False
+    if academic_impact and not ignore_academic:
+        bonus, acad_penalties, acad_recs = score_academic_impact_bonus(
+            academic_impact
+        )
+        if bonus > 0:
+            raw_score = min(25.0, raw_score + bonus)
+            # Add a positive signal (not a penalty)
+            n_papers = academic_impact.paper_count
+            n_resolved = academic_impact.resolved_count
+            if n_resolved > 0:
+                recommendations.append(
+                    f"Academic impact: {n_resolved} research paper(s) referenced "
+                    f"({academic_impact.total_citations} total citations)"
+                )
+        penalties.extend(acad_penalties)
+        recommendations.extend(acad_recs)
 
     weight = config.weight_for("documentation")
     score = _apply_weight(raw_score, 25.0, weight)

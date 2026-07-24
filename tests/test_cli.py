@@ -99,7 +99,7 @@ def test_parse_args_baseline_and_config() -> None:
 
 
 def test_main_invalid_repo_format(monkeypatch, capsys) -> None:
-    async def fake_run(repository, token=None, config_path=None):
+    async def fake_run(repository, token=None, config_path=None, **kwargs):
         raise ValueError("bad format")
 
     monkeypatch.setattr(cli, "run", fake_run)
@@ -111,7 +111,7 @@ def test_main_invalid_repo_format(monkeypatch, capsys) -> None:
 def test_main_json_output(monkeypatch, capsys) -> None:
     metrics, health = _make_objects()
 
-    async def fake_run(repository, token=None, config_path=None):
+    async def fake_run(repository, token=None, config_path=None, **kwargs):
         d = _fake_result(
             metrics,
             health,
@@ -180,7 +180,7 @@ def test_main_json_output(monkeypatch, capsys) -> None:
 def test_main_text_output(monkeypatch, capsys) -> None:
     metrics, health = _make_objects()
 
-    async def fake_run(repository, token=None, config_path=None):
+    async def fake_run(repository, token=None, config_path=None, **kwargs):
         return _fake_result(metrics, health)
 
     monkeypatch.setattr(cli, "run", fake_run)
@@ -195,7 +195,7 @@ def test_main_markdown_output(monkeypatch, capsys, tmp_path) -> None:
     metrics, health = _make_objects()
     out_path = tmp_path / "report.md"
 
-    async def fake_run(repository, token=None, config_path=None):
+    async def fake_run(repository, token=None, config_path=None, **kwargs):
         return _fake_result(metrics, health)
 
     monkeypatch.setattr(cli, "run", fake_run)
@@ -211,7 +211,7 @@ def test_main_markdown_output(monkeypatch, capsys, tmp_path) -> None:
 def test_quality_gate_failure(monkeypatch, capsys) -> None:
     metrics, health = _make_objects(score=45.0)
 
-    async def fake_run(repository, token=None, config_path=None):
+    async def fake_run(repository, token=None, config_path=None, **kwargs):
         return _fake_result(metrics, health)
 
     monkeypatch.setattr(cli, "run", fake_run)
@@ -224,7 +224,7 @@ def test_quality_gate_failure(monkeypatch, capsys) -> None:
 def test_quality_gate_pass_explicit_threshold(monkeypatch, capsys) -> None:
     metrics, health = _make_objects(score=65.0)
 
-    async def fake_run(repository, token=None, config_path=None):
+    async def fake_run(repository, token=None, config_path=None, **kwargs):
         return _fake_result(metrics, health)
 
     monkeypatch.setattr(cli, "run", fake_run)
@@ -236,7 +236,7 @@ def test_save_artifact(monkeypatch, capsys, tmp_path) -> None:
     metrics, health = _make_objects(score=80.0)
     metrics.commit_sha = "deadbeef1234567890abcdef"
 
-    async def fake_run(repository, token=None, config_path=None):
+    async def fake_run(repository, token=None, config_path=None, **kwargs):
         return _fake_result(
             metrics,
             health,
@@ -305,7 +305,7 @@ def test_baseline_comparison(monkeypatch, capsys, tmp_path) -> None:
         encoding="utf-8",
     )
 
-    async def fake_run(repository, token=None, config_path=None):
+    async def fake_run(repository, token=None, config_path=None, **kwargs):
         return _fake_result(metrics, health)
 
     monkeypatch.setattr(cli, "run", fake_run)

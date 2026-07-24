@@ -71,6 +71,9 @@ class RepoMetrics:
     ci_cd: CiCdSetup
     maintenance: MaintenanceActivity
     commit_sha: str | None = None
+    # Optional: academic impact (paper references in repo docs)
+    # Import is TYPE_CHECKING guarded to avoid circular import
+    academic_impact: "AcademicImpact | None" = None  # type: ignore[name-defined]
 
 
 # ----------------------------------------------------------------------
