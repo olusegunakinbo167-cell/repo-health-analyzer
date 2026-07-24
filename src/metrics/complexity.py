@@ -5,7 +5,10 @@ implies harder testing and higher defect risk. Maps to SonarQube /
 Code Climate quality gates (A–E).
 """
 
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Dict, List
+
+from radon.complexity import cc_visit
 
 
 # SonarQube-aligned complexity rating thresholds
@@ -44,11 +47,75 @@ def calculate_complexity(repo_path: str) -> Dict[str, Any]:
             - rating: str ("A" | "B" | "C" | "D" | "E")
             - total_functions: int
     """
-    # TODO: implement radon.cc_visit analysis
-    # from radon.complexity import cc_visit
-    # Walk repo_path for *.py files
-    # results = cc_visit(source_code)
-    # Aggregate per-function CC scores
-    # Build high_risk_functions list (cc > 10)
-    # Compute avg/max, map to rating
-    raise NotImplementedError("calculate_complexity not yet implemented - see issue #3")
+    root = Path(repo_path)
+    if not root.exists():
+        return {
+            "avg_complexity": 0.0,
+            "max_complexity": 0,
+            "high_risk_functions": [],
+            "rating": "A",
+            "total_functions": 0,
+        }
+
+    all_cc: List[int] = []
+    high_risk: List[Dict[str, Any]] = []
+
+    # Walk for *.py files, skip common noise dirs
+    skip_dirs = {
+        ".git", "__pycache__", ".venv", "venv", ".pytest_cache",
+        "node_modules", ".mypy_cache", ".ruff_cache", "build", "dist",
+        ".tox", ".eggs", "htmlcov",
+    }
+
+    for py_file in root.rglob("*.py"):
+        # Skip files in ignored directories
+        if any(part in skip_dirs for part in py_file.parts):
+            continue
+
+        try:
+            source = py_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        try:
+            results = cc_visit(source)
+        except (SyntaxError, Exception):
+            # Skip files that radon can't parse
+            continue
+
+        rel_path = str(py_file.relative_to(root))
+
+        for item in results:
+            cc = item.complexity
+            all_cc.append(cc)
+
+            if cc > 10:
+                high_risk.append({
+                    "file": rel_path,
+                    "function": item.name,
+                    "cc": cc,
+                    "lineno": item.lineno,
+                })
+
+    if not all_cc:
+        return {
+            "avg_complexity": 0.0,
+            "max_complexity": 0,
+            "high_risk_functions": [],
+            "rating": "A",
+            "total_functions": 0,
+        }
+
+    avg_cc = sum(all_cc) / len(all_cc)
+    max_cc = max(all_cc)
+
+    # Sort high-risk by CC descending, then by file/function
+    high_risk.sort(key=lambda x: (-x["cc"], x["file"], x["function"]))
+
+    return {
+        "avg_complexity": round(avg_cc, 2),
+        "max_complexity": max_cc,
+        "high_risk_functions": high_risk,
+        "rating": _complexity_rating(avg_cc),
+        "total_functions": len(all_cc),
+    }
