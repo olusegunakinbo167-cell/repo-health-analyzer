@@ -401,13 +401,17 @@ async def resolve_paper_references(
                 for k, v in p.external_ids.items():
                     if not v:
                         continue
+                    # S2 external IDs are usually strings, but be defensive
+                    v_str = str(v)
+                    v_lower = v_str.lower()
+                    k_upper = k.upper()
                     # DOI
-                    if k.upper() == "DOI":
-                        resolved_map[f"doi:{v.lower()}"] = p
-                        resolved_map[v.lower()] = p
+                    if k_upper == "DOI":
+                        resolved_map[f"doi:{v_lower}"] = p
+                        resolved_map[v_lower] = p
                     # ArXiv
-                    if k.lower() == "arxiv":
-                        arxiv_norm = v.lower()
+                    elif k.lower() == "arxiv":
+                        arxiv_norm = v_lower
                         resolved_map[f"arxiv:{arxiv_norm}"] = p
                         resolved_map[arxiv_norm] = p
                         # Also index without version
@@ -415,15 +419,16 @@ async def resolve_paper_references(
                         resolved_map[f"arxiv:{arxiv_base}"] = p
                         resolved_map[arxiv_base] = p
                     # PMID
-                    if k.upper() == "PUBMED":
-                        resolved_map[f"pmid:{v}"] = p
-                        resolved_map[v] = p
+                    elif k_upper == "PUBMED":
+                        resolved_map[f"pmid:{v_str}"] = p
+                        resolved_map[v_str] = p
                     # ACL
-                    if k.upper() == "ACL":
-                        resolved_map[f"acl:{v.lower()}"] = p
-                        resolved_map[v.lower()] = p
+                    elif k_upper == "ACL":
+                        resolved_map[f"acl:{v_lower}"] = p
+                        resolved_map[v_lower] = p
                     # Generic fallback
-                    resolved_map[v.lower()] = p
+                    else:
+                        resolved_map[v_lower] = p
 
         # Match references to resolved papers
         resolved: list[ResolvedPaper] = []
