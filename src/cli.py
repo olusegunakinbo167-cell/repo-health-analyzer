@@ -330,11 +330,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     analyze.set_defaults(func=cmd_analyze)
 
-    # Backwards compat: if first arg looks like owner/repo and isn't a subcommand,
-    # treat as `analyze <repo>`
+    # Backwards compat: if first arg isn't a known subcommand, treat as
+    # `analyze <repo> ...` — this preserves the old
+    # `repo-health-analyzer owner/repo [...]` invocation, and also ensures
+    # invalid repo format errors come from run() validation (not argparse),
+    # matching pre-subparser behavior.
     if argv is None:
         argv = sys.argv[1:]
-    if argv and "/" in argv[0] and not argv[0].startswith("-"):
+    if argv and not argv[0].startswith("-") and argv[0] not in ("movies", "analyze"):
         # Rewrite: repo-health-analyzer owner/repo ... → repo-health-analyzer analyze owner/repo ...
         argv = ["analyze", *argv]
 

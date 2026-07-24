@@ -13,10 +13,15 @@ pip install -e ".[dev]"
 ## Usage
 
 ```bash
-repo-health-analyzer owner/repo [options]
+# Repository health analysis
+repo-health-analyzer analyze owner/repo [options]
+# (Backwards compat: `repo-health-analyzer owner/repo [...]` also works)
+
+# Movie showtimes / theater listings (dev downtime 🎬)
+repo-health-analyzer movies <command> [options]
 ```
 
-### Options
+### Analyze options
 
 | Flag | Description |
 |---|---|
@@ -66,6 +71,31 @@ repo-health-analyzer myorg/myrepo \
   --min-score 75 \
   --save-artifact ./health-artifact.json
 ```
+
+### Movies subcommand (dev downtime 🎬)
+
+`repo-health-analyzer movies` wraps the [OpenClaw Fandango CLI](https://github.com/openclaw/openclaw) for checking movie showtimes, theater schedules, and seat availability — a fun easter egg for dev downtime, not part of repo health scoring.
+
+Requires Node.js and the Fandango CLI installed at `~/.openclaw/extensions/fandango/fandango.js` (override with `FANDANGO_CLI=/path/to/fandango.js`). All commands are read-only.
+
+```bash
+# Search for movies
+repo-health-analyzer movies search "odyssey"
+
+# Showtimes for a movie near a ZIP code
+repo-health-analyzer movies showtimes --movie-id 241283 --date 2026-07-25 --zip 78701
+
+# All movies at a theater
+repo-health-analyzer movies theater --theater-id aawjb --date 2026-07-25
+
+# Available dates for a theater
+repo-health-analyzer movies calendar --theater-id aawjb
+
+# Seat availability (get showtimeHashCode from showtimes output)
+repo-health-analyzer movies seats v2-d6971c7a5447715c79f18ac5c95ddca946140ce13d2b8286f4a8b86b4fc33c94 --render
+```
+
+All movie commands support `--json` for scripting. Movie/theater IDs come from Fandango URLs, e.g. `/the-odyssey-2026-241283/movie-overview` → movie ID `241283`.
 
 Or via module:
 
