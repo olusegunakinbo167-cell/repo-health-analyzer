@@ -18,7 +18,7 @@ S2_GRAPH_BASE = "https://api.semanticscholar.org/graph/v1"
 S2_RECOMM_BASE = "https://api.semanticscholar.org/recommendations/v1"
 
 _DEFAULT_TIMEOUT = 30.0
-_USER_AGENT = "repo-health-analyzer/0.1.0 (https://github.com/olusegunakinbo167-cell/repo-health-analyzer)"
+_USER_AGENT = "repo-health-analyzer/0.2.0 (https://github.com/olusegunakinbo167-cell/repo-health-analyzer)"
 _MAX_RETRIES = 5
 _RETRY_BASE_DELAY = 1.5
 

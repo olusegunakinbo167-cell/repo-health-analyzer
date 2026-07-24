@@ -498,7 +498,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
             "metrics": result["metrics"],
             "health_score": result["health_score"],
             "config": result["config"],
-            "tool_version": "0.1.0",
+            "tool_version": "0.2.0",
         }
         if baseline_diff:
             artifact["baseline"] = result.get("baseline")

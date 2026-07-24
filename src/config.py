@@ -117,7 +117,7 @@ async def fetch_remote_config(
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "repo-health-analyzer/0.1.0",
+        "User-Agent": "repo-health-analyzer/0.2.0",
     }
     if token:
         headers["Authorization"] = f"Bearer {token}"
