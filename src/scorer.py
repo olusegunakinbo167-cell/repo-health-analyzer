@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .config import RepoConfig
+from .metrics.bus_factor import calculate_bus_factor
 from .models import CategoryScore, HealthScore, RepoMetrics
 
 
@@ -76,7 +77,7 @@ def score_documentation(
 def score_maintenance(
     metrics: RepoMetrics, config: RepoConfig | None = None
 ) -> CategoryScore:
-    """Score Maintenance based on commit velocity and issue close ratio.
+    """Score Maintenance based on commit velocity, issue close ratio, and bus factor.
 
     Commit velocity (raw 0–15 pts):
       >= 20 commits/90d  → 15 pts
@@ -91,6 +92,11 @@ def score_maintenance(
       ratio >= 0.40 →  4 pts
       ratio <  0.40 →  1 pt
       no issues     →  5 pts (neutral)
+
+    Bus factor (penalty, 0–5 pts deducted):
+      top_author > 70% → −5 pts, high maintainer risk
+      top_author <= 70% → 0 pts
+      no commit_author data → 0 pts (backwards compat)
     """
     config = config or RepoConfig()
     maint = metrics.maintenance
@@ -166,6 +172,22 @@ def score_maintenance(
                 recommendations.append(
                     "Close or triage stale issues — a low close ratio signals poor maintenance"
                 )
+
+    # Bus factor / maintainer concentration risk
+    # Only score if commit_author data is present (backwards compat with existing tests)
+    if maint.commit_authors:
+        bf = calculate_bus_factor(maint.commit_authors)
+        if bf["is_high_risk"]:
+            raw_score = max(0.0, raw_score - 5.0)
+            top_share = bf["top_author_share"]
+            penalties.append(
+                f"High maintainer concentration risk (bus factor): "
+                f"top author owns {top_share:.0%} of commits"
+            )
+            recommendations.append(
+                "Distribute knowledge across more contributors — "
+                "add co-maintainers and document key processes"
+            )
 
     weight = config.weight_for("maintenance")
     score = _apply_weight(raw_score, 25.0, weight)
