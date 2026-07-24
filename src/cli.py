@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from rich.console import Console
+from rich.table import Table
 
 from .collector import RepoCollector
 from .config import RepoConfig, fetch_remote_config, load_config
@@ -22,39 +23,268 @@ from .reporter import render_markdown, render_rich
 from .scorer import score_repo
 
 
+# ── Fandango / movies subcommand ──
+
+def _add_movies_subparsers(subparsers: argparse._SubParsersAction) -> None:
+    movies = subparsers.add_parser(
+        "movies",
+        help="Movie showtimes, theater listings, and seat availability (via Fandango)",
+        description="Movie showtimes, theater listings, and seat availability (via Fandango). "
+        "Fun dev-downtime subcommand — not part of repo health scoring.",
+    )
+    m_sub = movies.add_subparsers(dest="movies_cmd", required=True)
+
+    # search
+    p = m_sub.add_parser("search", help="Search for movies by title")
+    p.add_argument("query", help="Movie title search term")
+    p.add_argument("--limit", type=int, default=20, help="Max results (default: 20)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_movies_search)
+
+    # movie-showtimes
+    p = m_sub.add_parser("showtimes", help="Find showtimes for a specific movie near a location")
+    p.add_argument("--movie-id", required=True, help="Fandango movie ID")
+    p.add_argument("--date", required=True, help="Date YYYY-MM-DD")
+    loc = p.add_mutually_exclusive_group(required=True)
+    loc.add_argument("--zip", help="US ZIP code (5-digit)")
+    loc.add_argument("--latlong", nargs=2, type=float, metavar=("LAT", "LONG"), help="Latitude Longitude")
+    p.add_argument("--format", dest="format_filter", help="Filter by format (IMAX, 3D, Standard, …)")
+    p.add_argument("--chain", dest="chain_code", help="Filter by chain code (e.g. AMC)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_movies_showtimes)
+
+    # theater-showtimes
+    p = m_sub.add_parser("theater", help="List movies and showtimes at a theater")
+    p.add_argument("--theater-id", required=True, help="Fandango theater ID")
+    p.add_argument("--date", help="Date YYYY-MM-DD (default: today)")
+    p.add_argument("--movie-id", help="Filter to a specific movie")
+    p.add_argument("--format", dest="format_filter", help="Filter by format")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_movies_theater)
+
+    # theater-calendar
+    p = m_sub.add_parser("calendar", help="Available showtime dates for a theater")
+    p.add_argument("--theater-id", required=True, help="Fandango theater ID")
+    p.add_argument("--start-date", help="Start date YYYY-MM-DD")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_movies_calendar)
+
+    # seat-map
+    p = m_sub.add_parser("seats", help="Seat availability for a showtime")
+    p.add_argument("showtime_hash", help="showtimeHashCode from showtimes output")
+    p.add_argument("--render", action="store_true", help="Render a terminal seat map")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_movies_seats)
+
+
+def cmd_movies_search(args: argparse.Namespace) -> int:
+    from .metrics.fandango import search_movies
+
+    try:
+        result = search_movies(args.query, limit=args.limit)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    movies = result.get("movies", [])
+    console = Console()
+    console.print(f"[bold]\"{result.get('query')}\"[/bold] — {result.get('count', 0)} result(s)")
+    if not movies:
+        console.print("No matches in Fandango's current in-theaters / coming-soon listings.", style="dim")
+        return 0
+    tbl = Table(show_header=True)
+    tbl.add_column("ID", style="cyan")
+    tbl.add_column("Title")
+    tbl.add_column("URL", style="dim")
+    for m in movies:
+        tbl.add_row(str(m.get("id", "?")), m.get("title", "?"), m.get("url", ""))
+    console.print(tbl)
+    return 0
+
+
+def cmd_movies_showtimes(args: argparse.Namespace) -> int:
+    from .metrics.fandango import movie_showtimes
+
+    lat = long = None
+    if args.latlong:
+        lat, long = args.latlong
+    try:
+        result = movie_showtimes(
+            movie_id=args.movie_id,
+            date=args.date,
+            zip_code=args.zip,
+            lat=lat,
+            long=long,
+            format_filter=args.format_filter,
+            chain_code=args.chain_code,
+        )
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    theaters = result.get("theaters", [])
+    console.print(f"[bold]Movie {result.get('movieId')} — {result.get('date')} — {len(theaters)} theater(s)[/bold]\n")
+    for th in theaters:
+        name = th.get("name", "?")
+        tid = th.get("id", "?")
+        dist = th.get("distance")
+        dist_s = f" — {dist:.1f} mi" if isinstance(dist, (int, float)) else ""
+        console.print(f"[bold]{name}[/bold] ({tid}){dist_s}", style="cyan")
+        addr = th.get("address")
+        if addr:
+            city = th.get("city", "")
+            state = th.get("state", "")
+            zipc = th.get("zip", "")
+            console.print(f"  {addr}, {city}, {state} {zipc}".strip(" ,"), style="dim")
+        for st in th.get("showtimes", []):
+            t = st.get("ticketingDate") or st.get("date")
+            formats = ", ".join(st.get("formats", []))
+            h = st.get("showtimeHashCode", "")
+            h_s = f"  [dim]hash={h[:16]}…[/dim]" if h else ""
+            console.print(f"  {t}  [{formats}]{h_s}")
+        console.print()
+    return 0
+
+
+def cmd_movies_theater(args: argparse.Namespace) -> int:
+    from .metrics.fandango import theater_showtimes
+
+    try:
+        result = theater_showtimes(
+            theater_id=args.theater_id,
+            date=args.date,
+            movie_id=args.movie_id,
+            format_filter=args.format_filter,
+        )
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    th = result.get("theater", {})
+    console.print(f"[bold]{th.get('name', '?')} ({th.get('id', '?')}) — {result.get('date', '?')}[/bold]\n")
+    for m in result.get("movies", []):
+        console.print(f"[bold]{m.get('title', '?')}[/bold] [dim]({m.get('id', '?')})[/dim]")
+        for st in m.get("showtimes", []):
+            t = st.get("ticketingDate") or st.get("date")
+            formats = ", ".join(st.get("formats", []))
+            h = st.get("showtimeHashCode", "")
+            h_s = f"  [dim]hash={h[:16]}…[/dim]" if h else ""
+            console.print(f"  {t}  [{formats}]{h_s}")
+        console.print()
+    return 0
+
+
+def cmd_movies_calendar(args: argparse.Namespace) -> int:
+    from .metrics.fandango import theater_calendar
+
+    try:
+        result = theater_calendar(args.theater_id, start_date=args.start_date)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]Theater {args.theater_id} — calendar[/bold]")
+    for d in result.get("dates", []):
+        mark = " ✓" if d.get("hasShowtime") else ""
+        console.print(f"  {d.get('date')}{mark}")
+    return 0
+
+
+def cmd_movies_seats(args: argparse.Namespace) -> int:
+    from .metrics.fandango import seat_map
+
+    try:
+        result = seat_map(args.showtime_hash)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json and not args.render:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    name = result.get("theaterName") or result.get("theaterId", "?")
+    avail = result.get("availableSeatCount", 0)
+    total = result.get("totalSeatCount", 0)
+    console.print(f"[bold]{name} — {avail}/{total} available[/bold]\n")
+    if args.render:
+        seats = result.get("seats", [])
+        by_row: dict[str, list] = {}
+        for s in seats:
+            by_row.setdefault(s["row"], []).append(s)
+        console.print("     SCREEN")
+        console.print("  " + "─" * 40)
+        for row in sorted(by_row.keys(), key=lambda x: (len(x), x)):
+            row_seats = sorted(by_row[row], key=lambda s: s["column"])
+            glyphs = []
+            for s in row_seats:
+                if s.get("isWheelchair"):
+                    glyphs.append("▣" if s.get("isAvailable") else "▦")
+                else:
+                    glyphs.append("□" if s.get("isAvailable") else "☒")
+            console.print(f"{row:>3}  {' '.join(glyphs)}")
+        console.print("\n[dim]□ open   ☒ taken   ▣ open wheelchair   ▦ taken wheelchair[/dim]")
+    if args.json:
+        print(json.dumps(result, indent=2))
+    return 0
+
+
+# ── Repo health analysis ──
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="repo-health-analyzer",
         description="Analyze GitHub repository health metrics.",
     )
-    parser.add_argument(
+    subparsers = parser.add_subparsers(dest="command")
+
+    # movies subcommand
+    _add_movies_subparsers(subparsers)
+
+    # analyze (default) — repository health check
+    analyze = subparsers.add_parser(
+        "analyze",
+        help="Analyze a GitHub repository (default command)",
+        description="Analyze GitHub repository health metrics.",
+    )
+    analyze.add_argument(
         "repository",
         help="Target repository in owner/repo format (e.g. 'octocat/Hello-World')",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--token",
         dest="token",
         default=None,
         help="GitHub personal access token (default: GITHUB_TOKEN env var)",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--s2-api-key",
         dest="s2_api_key",
         default=None,
         help="Semantic Scholar API key for academic impact metrics "
         "(default: S2_API_KEY / SEMANTIC_SCHOLAR_API_KEY env var)",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--skip-academic",
         action="store_true",
         help="Skip academic impact / paper reference scanning (faster, no S2 API calls)",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--json",
         action="store_true",
         help="Output results as JSON",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--markdown",
         metavar="PATH",
         type=Path,
@@ -62,14 +292,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Write a GitHub-flavored Markdown report to PATH "
         "(suitable for $GITHUB_STEP_SUMMARY or PR comments)",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--min-score",
         type=float,
         default=70.0,
         help="Quality gate threshold — exit with code 1 if health score is below this "
         "(default: 70.0)",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--save-artifact",
         metavar="PATH",
         type=Path,
@@ -77,7 +307,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Save complete run metadata (metrics, health_score, timestamp, repo SHA) "
         "to a JSON file",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--config",
         metavar="PATH",
         type=Path,
@@ -85,7 +315,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Path to local .repo-health.yml config file "
         "(default: auto-fetch from target repo root)",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--baseline",
         metavar="PATH",
         type=Path,
@@ -93,11 +323,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Path to a prior artifact JSON to compare against — "
         "category score deltas are shown in terminal and Markdown output",
     )
-    parser.add_argument(
+    analyze.add_argument(
         "--no-color",
         action="store_true",
         help="Disable Rich color output in terminal",
     )
+    analyze.set_defaults(func=cmd_analyze)
+
+    # Backwards compat: if first arg looks like owner/repo and isn't a subcommand,
+    # treat as `analyze <repo>`
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv and "/" in argv[0] and not argv[0].startswith("-"):
+        # Rewrite: repo-health-analyzer owner/repo ... → repo-health-analyzer analyze owner/repo ...
+        argv = ["analyze", *argv]
+
     return parser.parse_args(argv)
 
 
@@ -201,9 +441,7 @@ def load_baseline_health_score(path: Path) -> tuple[HealthScore, str | None, str
     return health, commit_sha, timestamp
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-
+def cmd_analyze(args: argparse.Namespace) -> int:
     try:
         result = asyncio.run(
             run(
@@ -323,6 +561,16 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    # Dispatch to subcommand func if present
+    if hasattr(args, "func"):
+        return args.func(args)
+    # No subcommand matched — show help
+    parse_args(["--help"])
+    return 2
 
 
 if __name__ == "__main__":
