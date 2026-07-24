@@ -47,6 +47,7 @@ class MaintenanceActivity:
     open_issues: int
     closed_issues: int
     stale_prs: int  # PRs open > 30 days
+    commit_authors: list[str] = field(default_factory=list)
 
     @property
     def issue_close_ratio(self) -> float:
