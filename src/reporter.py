@@ -85,13 +85,8 @@ def render_rich(
     table.add_column("Status", justify="center", width=8)
     table.add_column("Issues", width=50 if has_baseline else 60)
 
-    cat_keys = ("documentation", "maintenance", "ci_cd", "governance")
-    cat_objs = (
-        health.documentation,
-        health.maintenance,
-        health.ci_cd,
-        health.governance,
-    )
+    cat_keys = tuple(health.categories().keys())
+    cat_objs = tuple(health.categories().values())
 
     for key, cat in zip(cat_keys, cat_objs, strict=False):
         pct = cat.percentage
@@ -166,6 +161,15 @@ def render_rich(
             f"  Academic: {academic.resolved_count}/{academic.paper_count} paper(s) "
             f"resolved, {academic.total_citations} total citations"
             + (f" — {fos_str}" if fos_str else "")
+        )
+    # Financial impact
+    financial = getattr(metrics, "financial", None)
+    if financial and financial.tickers:
+        tickers_str = ", ".join(financial.tickers)
+        console.print(
+            f"  Financial: {financial.backer_count} backer(s) [{tickers_str}], "
+            f"{financial.composite_change_pct_90d:+.1f}% / 90d, "
+            f"vol {financial.composite_volatility:.1f}%"
         )
     console.print()
 

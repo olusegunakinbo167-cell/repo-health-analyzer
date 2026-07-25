@@ -64,9 +64,9 @@ def test_score_maintenance_bus_factor_penalty() -> None:
     authors = ["alice@example.com"] * 80 + ["bob@example.com"] * 20
     metrics = make_metrics_with_authors(authors)
     cat = score_maintenance(metrics)
-    # Normally 15 (commits) + 10 (close ratio) = 25 pts
-    # Bus factor penalty: −5 → 20 pts
-    assert cat.score == 20.0
+    # Normally 15 (commits) + 10 (close ratio) = 25 raw pts
+    # Bus factor penalty: −5 → 20 raw pts → 16.0 weighted
+    assert cat.score == 16.0
     assert any("bus factor" in p.lower() for p in cat.penalties)
     assert any("co-maintainers" in r.lower() for r in cat.recommendations)
 
@@ -80,6 +80,6 @@ def test_score_maintenance_bus_factor_ok() -> None:
     )
     metrics = make_metrics_with_authors(authors)
     cat = score_maintenance(metrics)
-    # No penalty, full 25 pts
-    assert cat.score == 25.0
+    # No penalty, full 25 raw pts → 20.0 weighted
+    assert cat.score == 20.0
     assert not any("bus factor" in p.lower() for p in cat.penalties)

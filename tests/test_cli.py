@@ -34,11 +34,11 @@ def _make_objects(score: float = 75.0):
     cat_score = score / 4
     health = HealthScore(
         total_score=score,
-        documentation=CategoryScore("Documentation", cat_score, 25.0, [], []),
-        maintenance=CategoryScore("Maintenance", cat_score, 25.0, [], []),
-        ci_cd=CategoryScore("CI/CD", cat_score, 25.0, [], []),
+        documentation=CategoryScore("Documentation", cat_score, 20.0, [], []),
+        maintenance=CategoryScore("Maintenance", cat_score, 20.0, [], []),
+        ci_cd=CategoryScore("CI/CD", cat_score, 20.0, [], []),
         governance=CategoryScore(
-            "Governance", score - cat_score * 3, 25.0, [], []
+            "Governance", score - cat_score * 3, 20.0, [], []
         ),
     )
     return metrics, health
@@ -146,28 +146,28 @@ def test_main_json_output(monkeypatch, capsys) -> None:
                 "documentation": {
                     "name": "Documentation",
                     "score": 15.0,
-                    "max_score": 25.0,
+                    "max_score": 20.0,
                     "penalties": [],
                     "recommendations": [],
                 },
                 "maintenance": {
                     "name": "Maintenance",
                     "score": 10.0,
-                    "max_score": 25.0,
+                    "max_score": 20.0,
                     "penalties": [],
                     "recommendations": [],
                 },
                 "ci_cd": {
                     "name": "CI/CD",
                     "score": 0.0,
-                    "max_score": 25.0,
+                    "max_score": 20.0,
                     "penalties": [],
                     "recommendations": [],
                 },
                 "governance": {
                     "name": "Governance",
                     "score": 30.0,
-                    "max_score": 25.0,
+                    "max_score": 20.0,
                     "penalties": [],
                     "recommendations": [],
                 },
@@ -279,28 +279,28 @@ def test_baseline_comparison(monkeypatch, capsys, tmp_path) -> None:
                     "documentation": {
                         "name": "Documentation",
                         "score": 15.0,
-                        "max_score": 25.0,
+                        "max_score": 20.0,
                         "penalties": [],
                         "recommendations": [],
                     },
                     "maintenance": {
                         "name": "Maintenance",
                         "score": 20.0,
-                        "max_score": 25.0,
+                        "max_score": 20.0,
                         "penalties": [],
                         "recommendations": [],
                     },
                     "ci_cd": {
                         "name": "CI/CD",
                         "score": 15.0,
-                        "max_score": 25.0,
+                        "max_score": 20.0,
                         "penalties": [],
                         "recommendations": [],
                     },
                     "governance": {
                         "name": "Governance",
                         "score": 20.0,
-                        "max_score": 25.0,
+                        "max_score": 20.0,
                         "penalties": [],
                         "recommendations": [],
                     },

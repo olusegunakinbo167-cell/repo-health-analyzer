@@ -74,6 +74,8 @@ class RepoMetrics:
     # Optional: academic impact (paper references in repo docs)
     # Import is TYPE_CHECKING guarded to avoid circular import
     academic_impact: "AcademicImpact | None" = None  # type: ignore[name-defined]
+    # Optional: financial impact (corporate backer stock performance)
+    financial: "FinancialMetrics | None" = None  # type: ignore[name-defined]
 
 
 # ----------------------------------------------------------------------
@@ -107,6 +109,7 @@ class HealthScore:
     maintenance: CategoryScore
     ci_cd: CategoryScore
     governance: CategoryScore
+    financial: CategoryScore | None = None
 
     @property
     def grade(self) -> str:
@@ -118,6 +121,7 @@ class HealthScore:
             + self.maintenance.max_score
             + self.ci_cd.max_score
             + self.governance.max_score
+            + (self.financial.max_score if self.financial else 0.0)
         )
         s = (self.total_score / total_max * 100.0) if total_max else 0.0
         if s >= 90:
@@ -140,15 +144,20 @@ class HealthScore:
             self.governance,
         ):
             recs.extend(cat.recommendations)
+        if self.financial:
+            recs.extend(self.financial.recommendations)
         return recs
 
     def categories(self) -> dict[str, CategoryScore]:
-        return {
+        cats = {
             "documentation": self.documentation,
             "maintenance": self.maintenance,
             "ci_cd": self.ci_cd,
             "governance": self.governance,
         }
+        if self.financial:
+            cats["financial"] = self.financial
+        return cats
 
 
 # ----------------------------------------------------------------------
@@ -203,14 +212,24 @@ class BaselineDiff:
         baseline_timestamp: str | None = None,
     ) -> BaselineDiff:
         cats: dict[str, CategoryDelta] = {}
-        for key in ("documentation", "maintenance", "ci_cd", "governance"):
-            cur_cat = current.categories()[key]
-            base_cat = baseline.categories()[key]
+        for key in ("documentation", "maintenance", "ci_cd", "governance", "financial"):
+            cur_cats = current.categories()
+            base_cats = baseline.categories()
+            if key not in cur_cats:
+                continue
+            cur_cat = cur_cats[key]
+            # Schema evolution: baseline may lack financial category
+            if key not in base_cats or base_cats[key] is None:
+                base_score = 0.0
+                # Mark as missing in baseline for reporting
+            else:
+                base_cat = base_cats[key]
+                base_score = base_cat.score if base_cat else 0.0
             cats[key] = CategoryDelta(
                 name=cur_cat.name,
                 current=cur_cat.score,
-                baseline=base_cat.score,
-                delta=round(cur_cat.score - base_cat.score, 2),
+                baseline=base_score,
+                delta=round(cur_cat.score - base_score, 2),
                 max_score=cur_cat.max_score,
             )
         return cls(

@@ -101,15 +101,9 @@ def _render_markdown(
         lines.append("| Category | Score | Status |")
         lines.append("|---|---:|---|")
 
-    cat_keys = ("documentation", "maintenance", "ci_cd", "governance")
-    cat_objs = (
-        health.documentation,
-        health.maintenance,
-        health.ci_cd,
-        health.governance,
-    )
+    cat_items = list(health.categories().items())
 
-    for key, cat in zip(cat_keys, cat_objs, strict=False):
+    for key, cat in cat_items:
         pct = cat.percentage
         status = "✅" if pct >= 80 else "⚠️" if pct >= 60 else "❌"
         if has_baseline:
@@ -137,7 +131,9 @@ def _render_markdown(
         cs = baseline_diff.current_score
         d = baseline_diff.delta
         lines.append(f"| **Overall** | {bs:.1f} | {cs:.1f} | {d:+.1f} |")
-        for key in cat_keys:
+        for key, cat in cat_items:
+            if key not in baseline_diff.categories:
+                continue
             cd = baseline_diff.categories[key]
             lines.append(
                 f"| {cd.name} | {cd.baseline:.1f} | {cd.current:.1f} | {cd.delta:+.1f} |"
@@ -158,13 +154,13 @@ def _render_markdown(
         lines.append("")
 
     # Collapsible diagnostics per category
-    for key, cat in zip(cat_keys, cat_objs, strict=False):
+    for key, cat in cat_items:
         pct = cat.percentage
         icon = "✅" if pct >= 80 else "⚠️" if pct >= 60 else "❌"
         summary_text = (
             f"<summary><b>{icon} {cat.name} — {cat.score:.1f} / {cat.max_score:.0f}"
         )
-        if has_baseline:
+        if has_baseline and key in baseline_diff.categories:  # type: ignore[union-attr]
             cd = baseline_diff.categories[key]  # type: ignore[index]
             d_sign = "+" if cd.delta > 0 else ""
             summary_text += f" ({d_sign}{cd.delta:.1f})"
@@ -265,6 +261,13 @@ def _render_markdown(
         )
         recent = academic.recent_papers_count()
         lines.append(f"| Recent papers (<3yr) | {recent} |")
+    # Financial impact
+    financial = getattr(metrics, "financial", None)
+    if financial and financial.tickers:
+        lines.append(f"| Backer tickers | {', '.join(financial.tickers)} |")
+        lines.append(f"| Backer count | {financial.backer_count} |")
+        lines.append(f"| 90d change | {financial.composite_change_pct_90d:+.1f}% |")
+        lines.append(f"| Volatility (ann.) | {financial.composite_volatility:.1f}% |")
     lines.append("")
     lines.append("</details>")
     lines.append("")

@@ -684,22 +684,41 @@ def load_baseline_health_score(path: Path) -> tuple[HealthScore, str | None, str
     repo_data = data.get("repository", {})
     timestamp = data.get("timestamp")
 
-    def load_cat(key: str) -> CategoryScore:
-        c = hs_data.get(key, {})
+    def load_cat(key: str, default_max: float = 20.0) -> CategoryScore | None:
+        c = hs_data.get(key)
+        if c is None:
+            return None
         return CategoryScore(
             name=c.get("name", key.title()),
             score=float(c.get("score", 0.0)),
-            max_score=float(c.get("max_score", 25.0)),
+            max_score=float(c.get("max_score", default_max)),
             penalties=list(c.get("penalties", [])),
             recommendations=list(c.get("recommendations", [])),
         )
 
+    # Load required categories (backwards compat: old 25-pt baselines)
+    def load_cat_req(key: str) -> CategoryScore:
+        cat = load_cat(key, default_max=25.0)
+        if cat is None:
+            # Missing in baseline — neutral 0 score
+            return CategoryScore(name=key.title(), score=0.0, max_score=20.0)
+        return cat
+
+    documentation = load_cat_req("documentation")
+    maintenance = load_cat_req("maintenance")
+    ci_cd = load_cat_req("ci_cd")
+    governance = load_cat_req("governance")
+    financial = load_cat("financial", default_max=20.0)
+
+    total_score = float(hs_data.get("total_score", 0.0))
+
     health = HealthScore(
-        total_score=float(hs_data.get("total_score", 0.0)),
-        documentation=load_cat("documentation"),
-        maintenance=load_cat("maintenance"),
-        ci_cd=load_cat("ci_cd"),
-        governance=load_cat("governance"),
+        total_score=total_score,
+        documentation=documentation,
+        maintenance=maintenance,
+        ci_cd=ci_cd,
+        governance=governance,
+        financial=financial,
     )
     commit_sha = repo_data.get("commit_sha")
     return health, commit_sha, timestamp

@@ -129,13 +129,13 @@ def test_render_markdown_perfect_score() -> None:
     metrics, health = make_sample()
     # Make it perfect
     health.total_score = 100.0
-    health.documentation.score = 25.0
+    health.documentation.score = 20.0
     health.documentation.penalties = []
     health.documentation.recommendations = []
-    health.maintenance.score = 25.0
+    health.maintenance.score = 20.0
     health.maintenance.penalties = []
-    health.ci_cd.score = 25.0
-    health.governance.score = 25.0
+    health.ci_cd.score = 20.0
+    health.governance.score = 20.0
 
     md = render_markdown(metrics, health)
     assert "100" in md
