@@ -16,8 +16,15 @@ def test_find_fandango_cli_env_override(tmp_path, monkeypatch):
     fake_cli = tmp_path / "fandango.js"
     fake_cli.write_text("#!/usr/bin/env node\n")
     monkeypatch.setenv("FANDANGO_CLI", str(fake_cli))
-    result = fandango.find_fandango_cli()
-    assert result == fake_cli
+    # Clear cached CLI path so env var is checked
+    from src.metrics import fandango as fandango_mod
+
+    fandango_mod._FANDANGO_CLI._cached_cli_path = None
+    try:
+        result = fandango.find_fandango_cli()
+        assert result == fake_cli
+    finally:
+        fandango_mod._FANDANGO_CLI._cached_cli_path = None
 
 
 def test_find_fandango_cli_not_found(monkeypatch):
