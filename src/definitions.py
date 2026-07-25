@@ -170,6 +170,56 @@ def resolve(category: str, rule_id: str, **ctx: Any) -> tuple[str, str]:
     return get_registry().resolve(category, rule_id, **ctx)
 
 
+def resolve_finding(
+    category: str, rule_id: str, **ctx: Any
+) -> "Finding":  # type: ignore[name-defined]  # Forward ref to avoid circular import
+    """Resolve a rule to a structured Finding object with full metadata.
+
+    Returns a Finding with severity, description, references, tags, etc.
+    — everything needed for rich exporter rendering.
+
+    Parameters
+    ----------
+    category: scoring category (documentation, maintenance, ci_cd, governance)
+    rule_id: rule identifier matching definitions/metrics.yaml
+    **ctx: template variables for message_template interpolation
+
+    Returns
+    -------
+    Finding with all metric metadata populated.
+    """
+    # Local import to avoid circular dependency (models -> definitions)
+    from .models import Finding
+
+    md = get_registry().get(category, rule_id)
+    if md is None:
+        # Definition missing — graceful fallback
+        return Finding(
+            rule_id=rule_id,
+            category=category,
+            severity="medium",
+            message=rule_id,
+            description="",
+            recommendation="",
+            references=[],
+            tags=[],
+            weight_raw=None,
+        )
+
+    message = md.render_message(**ctx)
+    return Finding(
+        rule_id=rule_id,
+        category=category,
+        severity=md.severity,
+        message=message,
+        description=md.description,
+        recommendation=md.recommendation,
+        references=(md.references or []),
+        tags=(md.tags or []),
+        weight_raw=md.weight_raw,
+    )
+
+
 def reset_registry() -> None:
     """Clear the cached registry singleton (primarily for testing)."""
     global _registry
