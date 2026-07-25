@@ -28,16 +28,18 @@ repo-health-analyzer embark <command> [options]
 
 | Flag | Description |
 |---|---|
+| `--output PATH, -o PATH` | Write health report to PATH (format auto-detected from extension) |
+| `--format {json,markdown,auto}` | Output format for `--output` (default: auto) |
 | `--token TOKEN` | GitHub personal access token (default: `GITHUB_TOKEN` env var) |
 | `--s2-api-key KEY` | Semantic Scholar API key for academic impact metrics (default: `S2_API_KEY` / `SEMANTIC_SCHOLAR_API_KEY` env var) |
 | `--skip-academic` | Skip academic impact / paper reference scanning (faster, no S2 API calls) |
-| `--json` | Output results as JSON |
-| `--markdown PATH` | Write a GitHub-flavored Markdown report to PATH (suitable for `$GITHUB_STEP_SUMMARY` or PR comments) |
 | `--min-score N` | Quality gate threshold — exit with code 1 if health score is below N (default: 70.0) |
-| `--save-artifact PATH` | Save complete run metadata (metrics, health_score, timestamp, repo SHA) to a JSON file |
 | `--config PATH` | Path to local `.repo-health.yml` config file (default: auto-fetch from target repo root) |
 | `--baseline PATH` | Path to a prior artifact JSON to compare against — category score deltas are shown in terminal and Markdown output |
 | `--no-color` | Disable Rich color output in terminal |
+| `--json` | *(deprecated)* Output results as JSON to stdout — use `-o report.json` instead |
+| `--markdown PATH` | *(deprecated)* Write Markdown report to PATH — use `-o report.md` instead |
+| `--save-artifact PATH` | *(deprecated)* Save run metadata to JSON — use `-o artifact.json` instead |
 
 ### Academic impact / paper references
 
@@ -60,19 +62,24 @@ To disable academic impact scanning entirely (offline / CI environments), use `-
 # Basic analysis
 repo-health-analyzer octocat/Hello-World
 
+# Export to JSON (includes plugin statuses)
+repo-health-analyzer myorg/myrepo -o health-report.json
+
+# Export to Markdown (suitable for $GITHUB_STEP_SUMMARY or PR comments)
+repo-health-analyzer myorg/myrepo -o health-report.md
+
 # With academic impact (S2 API key from env)
 export S2_API_KEY=your_key_here
-repo-health-analyzer myorg/myrepo
+repo-health-analyzer myorg/myrepo -o report.json
 
 # Skip academic scanning (faster)
-repo-health-analyzer myorg/myrepo --skip-academic
+repo-health-analyzer myorg/myrepo --skip-academic -o report.md
 
-# JSON output + Markdown report for CI
+# CI pipeline with quality gate
 repo-health-analyzer myorg/myrepo \
-  --json \
-  --markdown ./health-report.md \
+  -o health-report.md \
   --min-score 75 \
-  --save-artifact ./health-artifact.json
+  --baseline ./previous-run.json
 ```
 
 ### Movies subcommand (dev downtime 🎬)

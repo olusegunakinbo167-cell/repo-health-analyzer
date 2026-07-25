@@ -109,7 +109,13 @@ def test_main_invalid_repo_format(monkeypatch, capsys) -> None:
 
 
 def test_main_json_output(monkeypatch, capsys) -> None:
-    metrics, health = _make_objects()
+    # JSONExporter now serializes the live HealthScore object (not result["health_score"] dict)
+    # so health.total_score must match the expected JSON output
+    metrics, health = _make_objects(score=55.0)
+    # Patch the governance score to match the test's hs_extra fixture
+    # (test data has governance=30.0 which exceeds max_score — preserving legacy test data)
+    health.governance.score = 30.0
+    health.total_score = 55.0
 
     async def fake_run(repository, token=None, config_path=None, **kwargs):
         d = _fake_result(
