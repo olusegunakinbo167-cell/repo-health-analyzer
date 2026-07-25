@@ -1,0 +1,243 @@
+# repo-health-analyzer metric definitions
+# version: 1
+version: 1
+
+metrics:
+  documentation:
+    missing_readme:
+      severity: high
+      weight_raw: 10
+      title: "Missing README file"
+      description: >
+        The repository root contains no README.md, README.rst, or README.txt.
+        A README is the primary entry point for new contributors and users.
+      recommendation: >
+        Add a README.md describing the project, installation steps, basic usage,
+        and links to further documentation.
+      references:
+        - https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes
+      tags: [onboarding, discoverability]
+
+    missing_license:
+      severity: high
+      weight_raw: 5
+      title: "Missing LICENSE file"
+      description: >
+        No LICENSE file was found in the repository root. Without an explicit
+        license, default copyright laws apply and most reuse is prohibited.
+      recommendation: >
+        Add a LICENSE file to clarify usage terms (MIT, Apache-2.0, GPL-3.0, etc.).
+        See https://choosealicense.com/ for guidance.
+      references:
+        - https://choosealicense.com/
+      tags: [governance, compliance]
+
+    missing_contributing:
+      severity: medium
+      weight_raw: 5
+      title: "Missing CONTRIBUTING.md"
+      description: >
+        No CONTRIBUTING.md file was found. Contributors lack guidance on code
+        style, PR process, testing requirements, and CLA/DCO expectations.
+      recommendation: >
+        Add CONTRIBUTING.md with guidelines for contributors — coding standards,
+        how to run tests, PR checklist, and issue templates.
+      tags: [community]
+
+    missing_code_of_conduct:
+      severity: low
+      weight_raw: 5
+      title: "Missing CODE_OF_CONDUCT.md"
+      description: >
+        No CODE_OF_CONDUCT.md was found. Community standards and enforcement
+        contact information are not documented.
+      recommendation: >
+        Add CODE_OF_CONDUCT.md to set community standards (e.g., Contributor Covenant v2.1).
+      references:
+        - https://www.contributor-covenant.org/version/2/1/code_of_conduct/
+      tags: [community, governance]
+
+  maintenance:
+    low_commit_activity:
+      severity: medium
+      title: "Low commit activity"
+      description: >
+        Commit velocity over the last 90 days is below the recommended threshold
+        (fewer than 5 commits).
+      recommendation: >
+        Increase commit frequency — aim for at least 5 commits per quarter.
+        Small, frequent commits are easier to review than large batches.
+      message_template: "Low commit activity: {commits} commit(s) in last 90 days"
+      tags: [velocity]
+
+    no_commits:
+      severity: high
+      title: "No commits in the last 90 days"
+      description: >
+        The repository shows no commit activity in the last 90 days.
+        It may be inactive or abandoned.
+      recommendation: >
+        Resume active development or archive the repository if no longer maintained.
+      message_template: "No commits in the last 90 days — repository appears inactive"
+      tags: [velocity, staleness]
+
+    low_issue_close_ratio:
+      severity: medium
+      title: "Low issue close ratio"
+      description: >
+        The ratio of closed issues to total tracked issues is below 40%.
+        This may indicate poor issue triage or abandoned bug reports.
+      recommendation: >
+        Close or triage stale issues — a low close ratio signals poor maintenance.
+      message_template: "Low issue close ratio: {ratio:.0%} ({closed} closed / {total} total)"
+      tags: [responsiveness]
+
+    no_issues_tracked:
+      severity: low
+      title: "No issues tracked"
+      description: >
+        No issues (open or closed) were found in the repository issue tracker.
+        Issue tracking is a key maintenance signal.
+      recommendation: >
+        Enable GitHub Issues to track bugs and feature requests.
+      message_template: "No issues tracked — cannot assess issue response health"
+      tags: [process]
+
+    bus_factor_risk:
+      severity: high
+      title: "High maintainer concentration risk"
+      description: >
+        A single author owns more than 70% of recent commits. This creates
+        bus factor risk — critical project knowledge is concentrated in one
+        maintainer.
+      recommendation: >
+        Distribute knowledge across more contributors — add co-maintainers, rotate review duties, and document key processes.
+      message_template: "High maintainer concentration risk (bus factor): top author owns {top_share:.0%} of commits"
+      tags: [bus_factor, risk]
+
+  ci_cd:
+    no_ci:
+      severity: high
+      title: "No CI/CD workflows found"
+      description: >
+        No GitHub Actions workflow files were detected in .github/workflows/.
+      recommendation: >
+        Set up CI/CD with GitHub Actions — start with a basic test/lint workflow.
+      message_template: "No GitHub Actions workflows found in .github/workflows/"
+      references:
+        - https://docs.github.com/en/actions/quickstart
+      tags: [automation, quality]
+
+    ci_single_workflow:
+      severity: low
+      title: "Limited CI/CD coverage"
+      description: >
+        Only one CI workflow was detected. Consider expanding automation coverage.
+      recommendation: >
+        Add more CI/CD coverage — e.g., linting, testing on multiple platforms, security scanning, Dependabot.
+      tags: [automation]
+
+    ci_two_workflows:
+      severity: info
+      title: "Consider expanding CI/CD coverage"
+      description: >
+        Two CI workflows detected. Additional automation (security, releases)
+        would further strengthen the pipeline.
+      recommendation: >
+        Consider adding additional CI workflows (e.g., security scanning, release automation).
+      tags: [automation]
+
+  governance:
+    license_governance_risk:
+      severity: high
+      weight_raw: 10
+      title: "Repository has no LICENSE file"
+      description: >
+        The repository has no LICENSE file — this is a governance and compliance
+        risk for downstream consumers and contributors.
+      recommendation: >
+        Add a LICENSE file (MIT, Apache-2.0, GPL-3.0, etc.).
+      message_template: "Repository has no LICENSE file — governance/compliance risk"
+      tags: [governance, compliance]
+
+    stale_prs:
+      severity: medium
+      title: "Stale pull requests"
+      description: >
+        One or more pull requests have been open for more than 30 days without
+        resolution. This creates governance debt and contributor frustration.
+      recommendation: >
+        Review and close/merge stale pull requests. Consider closing abandoned PRs or requesting a rebase from the author.
+      message_template: "{stale} stale PR(s) open >30 days ({stale_ratio:.0%} of tracked items)"
+      tags: [governance, responsiveness]
+
+    stale_prs_high:
+      severity: high
+      title: "High governance debt from stale PRs"
+      description: >
+        More than 25% of tracked issues/PRs are stale pull requests open for
+        over 30 days. This indicates significant governance debt.
+      recommendation: >
+        Urgently triage stale PRs — consider closing abandoned PRs or requesting a rebase. Set up stale-bot or similar automation to prevent accumulation.
+      message_template: "{stale} stale PR(s) open >30 days ({stale_ratio:.0%} of tracked items) — high governance debt"
+      tags: [governance, responsiveness]
+
+    no_issues_governance:
+      severity: low
+      title: "No issues/PRs tracked"
+      description: >
+        No issues or PRs are tracked in the repository — cannot assess PR
+        governance hygiene.
+      recommendation: >
+        Enable GitHub Issues to establish a governance baseline.
+      message_template: "No issues/PRs tracked — cannot assess PR governance"
+      tags: [process, governance]
+
+  academic_impact:
+    no_papers_found:
+      severity: info
+      title: "No academic paper references found"
+      description: >
+        No arXiv IDs, DOIs, or Semantic Scholar paper references were detected
+        in the repository documentation.
+      recommendation: >
+        If this project implements or extends academic research, consider referencing the relevant papers in your README for discoverability.
+      tags: [academic]
+
+    papers_found:
+      severity: none
+      title: "Academic impact"
+      description: >
+        One or more research papers are referenced in the repository documentation.
+      recommendation: ""
+      message_template: "Academic impact: {resolved} research paper(s) referenced ({total_citations} total citations)"
+      tags: [academic, positive]
+
+    academic_unresolved_papers:
+      severity: low
+      title: "Unresolved paper references"
+      description: >
+        One or more referenced papers could not be resolved via Semantic Scholar.
+        This may be due to invalid IDs, papers not yet indexed, or API issues.
+      recommendation: >
+        Verify paper reference IDs (DOI, ArXiv, PMID) are correct and publicly accessible.
+      message_template: "{unresolved} referenced paper(s) could not be resolved via Semantic Scholar"
+      tags: [academic]
+
+    academic_low_open_access:
+      severity: info
+      title: "Low open-access ratio"
+      description: >
+        Fewer than 50% of referenced papers are available open-access.
+      recommendation: >
+        Consider referencing open-access versions of papers where available.
+      tags: [academic, open_access]
+
+    academic_stale_papers:
+      severity: info
+      title: "No recent papers referenced"
+      description: >
+        All referenced papers are older than 3 years. Newer related work may exist.
+      recommendation: >
+        Referenced papers are all older than 3 years — check if newer related work exists.
+      tags: [academic, recency]
