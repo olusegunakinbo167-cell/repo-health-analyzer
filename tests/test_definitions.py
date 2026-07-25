@@ -254,3 +254,118 @@ def test_academic_impact_rules():
     md = get_registry().get("academic_impact", "no_papers_found")
     assert md is not None
     assert md.severity == "info"
+
+
+# ----------------------------------------------------------------------
+# v2: Finding / resolve_finding() tests
+# ----------------------------------------------------------------------
+
+
+def test_resolve_finding_basic():
+    """resolve_finding() returns a full Finding with all metadata."""
+    from src.definitions import resolve_finding
+
+    f = resolve_finding("documentation", "missing_readme")
+    assert f.rule_id == "missing_readme"
+    assert f.category == "documentation"
+    assert f.severity == "high"
+    assert "README" in f.message
+    assert len(f.description) > 20
+    assert len(f.recommendation) > 10
+    assert f.references is not None
+    assert len(f.references) > 0
+    assert "onboarding" in f.tags or "discoverability" in f.tags
+    assert f.weight_raw == 10
+
+
+def test_resolve_finding_with_template_vars():
+    """resolve_finding() interpolates template variables into message."""
+    from src.definitions import resolve_finding
+
+    # commit activity
+    f = resolve_finding("maintenance", "low_commit_activity", commits=7)
+    assert "7 commit" in f.message
+    assert f.severity == "medium"
+    assert "velocity" in f.tags
+
+    # issue close ratio with format spec
+    f = resolve_finding(
+        "maintenance", "low_issue_close_ratio",
+        ratio=0.33, closed=1, total=3,
+    )
+    assert "33%" in f.message
+    assert "1 closed" in f.message
+
+    # bus factor
+    f = resolve_finding("maintenance", "bus_factor_risk", top_share=0.92)
+    assert "92%" in f.message
+    assert f.severity == "high"
+    assert "bus_factor" in f.tags
+
+
+def test_resolve_finding_missing_rule_fallback():
+    """Missing rule IDs produce a fallback Finding (graceful degradation)."""
+    from src.definitions import resolve_finding
+
+    f = resolve_finding("documentation", "nonexistent_xyz")
+    assert f.rule_id == "nonexistent_xyz"
+    assert f.message == "nonexistent_xyz"
+    assert f.severity == "medium"
+    assert f.recommendation == ""
+
+
+def test_category_score_findings_field():
+    """CategoryScore.findings is populated alongside penalties/recommendations."""
+    from src.definitions import reset_registry
+    from src.models import CategoryScore, CommunityFiles, CiCdSetup, MaintenanceActivity, RepoMetrics
+    from src.scorer import score_documentation
+
+    reset_registry()
+
+    # Repo missing all community files → 4 findings
+    metrics = RepoMetrics(
+        full_name="test/repo",
+        description=None,
+        stars=0,
+        language="Python",
+        default_branch="main",
+        community_files=CommunityFiles(
+            readme=False, license=False, contributing=False, code_of_conduct=False
+        ),
+        ci_cd=CiCdSetup(workflow_files=[], workflow_count=0),
+        maintenance=MaintenanceActivity(
+            commits_last_90_days=10, open_issues=0, closed_issues=0, stale_prs=0
+        ),
+    )
+    cat = score_documentation(metrics)
+    assert len(cat.findings) == 4
+    assert len(cat.penalties) == 4
+    assert len(cat.recommendations) == 4
+    # Findings should mirror penalties/recommendations (BC)
+    assert cat.findings[0].message == cat.penalties[0]
+    assert cat.findings[0].recommendation == cat.recommendations[0]
+    # Full metadata present
+    assert cat.findings[0].severity in ("high", "medium", "low", "info", "none")
+    assert len(cat.findings[0].description) > 0
+
+
+def test_finding_dataclass_fields():
+    """Finding dataclass has all expected fields and types."""
+    from src.models import Finding
+
+    f = Finding(
+        rule_id="test_rule",
+        category="test",
+        severity="high",
+        message="Test message",
+        description="Test description",
+        recommendation="Test recommendation",
+        references=["https://example.com"],
+        tags=["tag1", "tag2"],
+        weight_raw=5,
+    )
+    assert f.rule_id == "test_rule"
+    assert f.severity == "high"
+    assert f.references == ["https://example.com"]
+    assert f.tags == ["tag1", "tag2"]
+    assert f.weight_raw == 5
