@@ -1,11 +1,13 @@
+# scorer.py
 """Repository health scoring engine."""
 
 from __future__ import annotations
 
 from .config import RepoConfig
+from .definitions import resolve, resolve_finding
 from .metrics.academic_impact import score_academic_impact_bonus
 from .metrics.bus_factor import calculate_bus_factor
-from .models import CategoryScore, HealthScore, RepoMetrics
+from .models import CategoryScore, Finding, HealthScore, RepoMetrics
 
 
 def _apply_weight(raw_score: float, raw_max: float, target_max: float) -> float:
@@ -13,6 +15,33 @@ def _apply_weight(raw_score: float, raw_max: float, target_max: float) -> float:
     if raw_max == 0:
         return 0.0
     return (raw_score / raw_max) * target_max
+
+
+def _append_finding(
+    findings: list[Finding],
+    penalties: list[str],
+    recommendations: list[str],
+    finding: Finding,
+    *,
+    add_penalty: bool = True,
+    add_recommendation: bool = True,
+) -> None:
+    """Append a finding to findings list and mirror to string lists (BC).
+
+    Parameters
+    ----------
+    findings: list to append Finding to
+    penalties: list to append message to (if add_penalty)
+    recommendations: list to append recommendation to (if add_recommendation)
+    finding: the Finding object
+    add_penalty: whether to mirror finding.message into penalties
+    add_recommendation: whether to mirror finding.recommendation into recommendations
+    """
+    findings.append(finding)
+    if add_penalty:
+        penalties.append(finding.message)
+    if add_recommendation and finding.recommendation:
+        recommendations.append(finding.recommendation)
 
 
 def score_documentation(
@@ -36,54 +65,59 @@ def score_documentation(
     raw_score = 0.0
     penalties: list[str] = []
     recommendations: list[str] = []
+    findings: list[Finding] = []
 
     # README — 10 pts
     if cf.readme or config.is_ignored("missing_readme"):
         raw_score += 10.0
     else:
-        penalties.append("Missing README file")
-        recommendations.append("Add a README.md describing the project, installation, and usage")
+        f = resolve_finding("documentation", "missing_readme")
+        _append_finding(findings, penalties, recommendations, f)
 
     # LICENSE — 5 pts
     if cf.license or config.is_ignored("missing_license"):
         raw_score += 5.0
     else:
-        penalties.append("Missing LICENSE file")
-        recommendations.append("Add a LICENSE file to clarify usage terms (e.g., MIT, Apache-2.0)")
+        f = resolve_finding("documentation", "missing_license")
+        _append_finding(findings, penalties, recommendations, f)
 
     # CONTRIBUTING — 5 pts
     if cf.contributing or config.is_ignored("missing_contributing"):
         raw_score += 5.0
     else:
-        penalties.append("Missing CONTRIBUTING.md")
-        recommendations.append("Add CONTRIBUTING.md with guidelines for contributors")
+        f = resolve_finding("documentation", "missing_contributing")
+        _append_finding(findings, penalties, recommendations, f)
 
     # CODE_OF_CONDUCT — 5 pts
     if cf.code_of_conduct or config.is_ignored("missing_code_of_conduct"):
         raw_score += 5.0
     else:
-        penalties.append("Missing CODE_OF_CONDUCT.md")
-        recommendations.append(
-            "Add CODE_OF_CONDUCT.md to set community standards (e.g., Contributor Covenant)"
-        )
+        f = resolve_finding("documentation", "missing_code_of_conduct")
+        _append_finding(findings, penalties, recommendations, f)
 
     # Academic impact bonus (Option B) — up to +5 pts, capped at 25 raw
     academic_impact = getattr(metrics, "academic_impact", None)
     ignore_academic = config.is_ignored("academic_impact") if config else False
     if academic_impact and not ignore_academic:
-        bonus, acad_penalties, acad_recs = score_academic_impact_bonus(
+        bonus, acad_penalties, acad_recs, acad_findings = score_academic_impact_bonus(
             academic_impact
         )
         if bonus > 0:
             raw_score = min(25.0, raw_score + bonus)
             # Add a positive signal (not a penalty)
-            n_papers = academic_impact.paper_count
             n_resolved = academic_impact.resolved_count
             if n_resolved > 0:
-                recommendations.append(
-                    f"Academic impact: {n_resolved} research paper(s) referenced "
-                    f"({academic_impact.total_citations} total citations)"
+                pf = resolve_finding(
+                    "academic_impact",
+                    "papers_found",
+                    resolved=n_resolved,
+                    total_citations=academic_impact.total_citations,
                 )
+                # Positive finding — add to findings and recommendations only
+                findings.append(pf)
+                recommendations.append(pf.message)
+        # Merge academic findings
+        findings.extend(acad_findings)
         penalties.extend(acad_penalties)
         recommendations.extend(acad_recs)
 
@@ -96,6 +130,7 @@ def score_documentation(
         max_score=weight,
         penalties=penalties,
         recommendations=recommendations,
+        findings=findings,
     )
 
 
@@ -128,6 +163,7 @@ def score_maintenance(
     raw_score = 0.0
     penalties: list[str] = []
     recommendations: list[str] = []
+    findings: list[Finding] = []
 
     # Commit velocity
     commits = maint.commits_last_90_days
@@ -145,18 +181,16 @@ def score_maintenance(
             raw_score += 15.0
         else:
             raw_score += 4.0
-            penalties.append(f"Low commit activity: {commits} commit(s) in last 90 days")
-            recommendations.append(
-                "Increase commit frequency — aim for at least 5 commits per quarter"
+            f = resolve_finding(
+                "maintenance", "low_commit_activity", commits=commits
             )
+            _append_finding(findings, penalties, recommendations, f)
     else:  # 0 commits
         if ignore_no_commits or ignore_low_commit:
             raw_score += 15.0
         else:
-            penalties.append("No commits in the last 90 days — repository appears inactive")
-            recommendations.append(
-                "Resume active development or archive the repository if no longer maintained"
-            )
+            f = resolve_finding("maintenance", "no_commits")
+            _append_finding(findings, penalties, recommendations, f)
 
     # Issue close ratio
     total_issues = maint.open_issues + maint.closed_issues
@@ -166,8 +200,8 @@ def score_maintenance(
     if total_issues == 0:
         raw_score += 5.0  # neutral
         if not ignore_no_issues:
-            penalties.append("No issues tracked — cannot assess issue response health")
-            recommendations.append("Enable GitHub Issues to track bugs and feature requests")
+            f = resolve_finding("maintenance", "no_issues_tracked")
+            _append_finding(findings, penalties, recommendations, f)
     else:
         ratio = maint.issue_close_ratio
         closed = maint.closed_issues
@@ -180,23 +214,27 @@ def score_maintenance(
                 raw_score += 10.0
             else:
                 raw_score += 4.0
-                penalties.append(
-                    f"Moderate issue close ratio: {ratio:.0%} "
-                    f"({closed} closed / {total_issues} total)"
+                f = resolve_finding(
+                    "maintenance",
+                    "low_issue_close_ratio",
+                    ratio=ratio,
+                    closed=closed,
+                    total=total_issues,
                 )
-                recommendations.append("Triage open issues regularly to improve response time")
+                _append_finding(findings, penalties, recommendations, f)
         else:
             if ignore_low_ratio:
                 raw_score += 10.0
             else:
                 raw_score += 1.0
-                penalties.append(
-                    f"Low issue close ratio: {ratio:.0%} "
-                    f"({closed} closed / {total_issues} total)"
+                f = resolve_finding(
+                    "maintenance",
+                    "low_issue_close_ratio",
+                    ratio=ratio,
+                    closed=closed,
+                    total=total_issues,
                 )
-                recommendations.append(
-                    "Close or triage stale issues — a low close ratio signals poor maintenance"
-                )
+                _append_finding(findings, penalties, recommendations, f)
 
     # Bus factor / maintainer concentration risk
     # Only score if commit_author data is present (backwards compat with existing tests)
@@ -205,14 +243,10 @@ def score_maintenance(
         if bf["is_high_risk"]:
             raw_score = max(0.0, raw_score - 5.0)
             top_share = bf["top_author_share"]
-            penalties.append(
-                f"High maintainer concentration risk (bus factor): "
-                f"top author owns {top_share:.0%} of commits"
+            f = resolve_finding(
+                "maintenance", "bus_factor_risk", top_share=top_share
             )
-            recommendations.append(
-                "Distribute knowledge across more contributors — "
-                "add co-maintainers and document key processes"
-            )
+            _append_finding(findings, penalties, recommendations, f)
 
     weight = config.weight_for("maintenance")
     score = _apply_weight(raw_score, 25.0, weight)
@@ -223,6 +257,7 @@ def score_maintenance(
         max_score=weight,
         penalties=penalties,
         recommendations=recommendations,
+        findings=findings,
     )
 
 
@@ -240,6 +275,7 @@ def score_ci_cd(metrics: RepoMetrics, config: RepoConfig | None = None) -> Categ
     raw_score = 0.0
     penalties: list[str] = []
     recommendations: list[str] = []
+    findings: list[Finding] = []
 
     ignore_no_ci = config.is_ignored("no_ci")
 
@@ -247,23 +283,24 @@ def score_ci_cd(metrics: RepoMetrics, config: RepoConfig | None = None) -> Categ
         raw_score = 25.0
     elif ci.workflow_count == 2:
         raw_score = 20.0
-        recommendations.append(
-            "Consider adding additional CI workflows (e.g., security scanning, release automation)"
+        f = resolve_finding("ci_cd", "ci_two_workflows")
+        # Info-level finding — recommendation only, no penalty
+        _append_finding(
+            findings, penalties, recommendations, f, add_penalty=False
         )
     elif ci.workflow_count == 1:
         raw_score = 15.0
-        recommendations.append(
-            "Add more CI/CD coverage — e.g., linting, testing on multiple platforms, Dependabot"
+        f = resolve_finding("ci_cd", "ci_single_workflow")
+        _append_finding(
+            findings, penalties, recommendations, f, add_penalty=False
         )
     else:
         if ignore_no_ci:
             raw_score = 25.0
         else:
             raw_score = 0.0
-            penalties.append("No GitHub Actions workflows found in .github/workflows/")
-            recommendations.append(
-                "Set up CI/CD with GitHub Actions — start with a basic test/lint workflow"
-            )
+            f = resolve_finding("ci_cd", "no_ci")
+            _append_finding(findings, penalties, recommendations, f)
 
     weight = config.weight_for("ci_cd")
     score = _apply_weight(raw_score, 25.0, weight)
@@ -274,6 +311,7 @@ def score_ci_cd(metrics: RepoMetrics, config: RepoConfig | None = None) -> Categ
         max_score=weight,
         penalties=penalties,
         recommendations=recommendations,
+        findings=findings,
     )
 
 
@@ -300,14 +338,15 @@ def score_governance(
     raw_score = 0.0
     penalties: list[str] = []
     recommendations: list[str] = []
+    findings: list[Finding] = []
 
     # License — 10 pts
     ignore_license = config.is_ignored("missing_license")
     if cf.license or ignore_license:
         raw_score += 10.0
     else:
-        penalties.append("Repository has no LICENSE file — governance/compliance risk")
-        recommendations.append("Add a LICENSE file (MIT, Apache-2.0, GPL-3.0, etc.)")
+        f = resolve_finding("governance", "license_governance_risk")
+        _append_finding(findings, penalties, recommendations, f)
 
     # Stale PRs — 15 pts
     total_tracked = maint.open_issues + maint.closed_issues
@@ -320,7 +359,11 @@ def score_governance(
     elif total_tracked == 0:
         raw_score += 7.0
         if not ignore_no_issues:
-            penalties.append("No issues/PRs tracked — cannot assess PR governance")
+            f = resolve_finding("governance", "no_issues_governance")
+            # Original scorer adds penalty but NO recommendation for this case
+            _append_finding(
+                findings, penalties, recommendations, f, add_recommendation=False
+            )
     else:
         stale_ratio = stale / max(total_tracked, 1)
         if ignore_stale:
@@ -329,19 +372,21 @@ def score_governance(
             raw_score += 10.0
         elif stale_ratio <= 0.25:
             raw_score += 5.0
-            penalties.append(
-                f"{stale} stale PR(s) open >30 days ({stale_ratio:.0%} of tracked items)"
+            f = resolve_finding(
+                "governance",
+                "stale_prs",
+                stale=stale,
+                stale_ratio=stale_ratio,
             )
-            recommendations.append("Review and close/merge stale pull requests")
+            _append_finding(findings, penalties, recommendations, f)
         else:
-            penalties.append(
-                f"{stale} stale PR(s) open >30 days ({stale_ratio:.0%} of tracked items) "
-                "— high governance debt"
+            f = resolve_finding(
+                "governance",
+                "stale_prs_high",
+                stale=stale,
+                stale_ratio=stale_ratio,
             )
-            recommendations.append(
-                "Urgently triage stale PRs — consider closing abandoned PRs or "
-                "requesting rebase"
-            )
+            _append_finding(findings, penalties, recommendations, f)
 
     weight = config.weight_for("governance")
     score = _apply_weight(raw_score, 25.0, weight)
@@ -352,6 +397,7 @@ def score_governance(
         max_score=weight,
         penalties=penalties,
         recommendations=recommendations,
+        findings=findings,
     )
 
 

@@ -475,10 +475,10 @@ async def resolve_paper_references(
 
 def score_academic_impact_bonus(
     impact: AcademicImpact | None,
-) -> tuple[float, list[str], list[str]]:
+) -> tuple[float, list[str], list[str], list["Finding"]]:  # type: ignore[name-defined]
     """Score academic impact as a documentation bonus (Option B).
 
-    Returns (bonus_score, penalties, recommendations).
+    Returns (bonus_score, penalties, recommendations, findings).
     Bonus is 0–5 pts, added on top of the base documentation score.
 
     Scoring:
@@ -489,7 +489,10 @@ def score_academic_impact_bonus(
     Max bonus: 5.0 pts
     """
     if impact is None or impact.paper_count == 0:
-        return 0.0, [], []
+        return 0.0, [], [], []
+
+    # Lazy import to avoid circular dependency (scorer -> academic_impact -> definitions -> scorer)
+    from ..definitions import resolve_finding as _resolve_finding
 
     n = impact.paper_count
     resolved = impact.resolved_count
@@ -506,6 +509,7 @@ def score_academic_impact_bonus(
 
     penalties: list[str] = []
     recommendations: list[str] = []
+    findings: list["Finding"] = []  # type: ignore[name-defined]
 
     # High-impact bonus
     if impact.avg_citations_per_paper >= 100 and score < 5.0:
@@ -515,22 +519,26 @@ def score_academic_impact_bonus(
     if impact.recent_papers_count() > 0 and 0 < score < 2.0:
         score = 2.0
 
-    # Penalties / recommendations
+    # Penalties / recommendations / findings — sourced from metric definitions registry
     if resolved < n:
         unresolved = n - resolved
-        penalties.append(
-            f"{unresolved} referenced paper(s) could not be resolved via Semantic Scholar"
+        f = _resolve_finding(
+            "academic_impact", "academic_unresolved_papers", unresolved=unresolved
         )
+        findings.append(f)
+        penalties.append(f.message)
+        if f.recommendation:
+            recommendations.append(f.recommendation)
 
     if impact.open_access_ratio < 0.5 and resolved >= 2:
-        recommendations.append(
-            "Consider referencing open-access versions of papers where available"
-        )
+        f = _resolve_finding("academic_impact", "academic_low_open_access")
+        findings.append(f)
+        # academic_low_open_access is recommendation-only (severity=info)
+        recommendations.append(f.recommendation or f.message)
 
     if impact.recent_papers_count() == 0 and resolved > 0:
-        recommendations.append(
-            "Referenced papers are all older than 3 years — "
-            "check if newer related work exists"
-        )
+        f = _resolve_finding("academic_impact", "academic_stale_papers")
+        findings.append(f)
+        recommendations.append(f.recommendation or f.message)
 
-    return round(score, 2), penalties, recommendations
+    return round(score, 2), penalties, recommendations, findings

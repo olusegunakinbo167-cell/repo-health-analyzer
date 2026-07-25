@@ -82,6 +82,28 @@ class RepoMetrics:
 
 
 @dataclass(slots=True)
+class Finding:
+    """Structured diagnostic finding with full metric metadata.
+
+    Carries rich rule metadata from definitions/metrics.yaml for
+    exporter rendering (severity badges, descriptions, documentation links).
+
+    The penalties/recommendations string lists in CategoryScore are
+    retained for backwards compatibility — findings is additive.
+    """
+
+    rule_id: str
+    category: str
+    severity: str  # high|medium|low|info|none
+    message: str  # rendered, with template variables substituted
+    description: str
+    recommendation: str
+    references: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    weight_raw: float | int | None = None
+
+
+@dataclass(slots=True)
 class CategoryScore:
     """Score breakdown for a single health category."""
 
@@ -90,6 +112,7 @@ class CategoryScore:
     max_score: float = 25.0
     penalties: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
 
     @property
     def percentage(self) -> float:
