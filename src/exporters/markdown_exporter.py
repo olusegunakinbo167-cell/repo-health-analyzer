@@ -158,6 +158,15 @@ def _render_markdown(
         lines.append("")
 
     # Collapsible diagnostics per category
+    # Severity badge mapping
+    SEV_BADGE = {
+        "high": "🔴 HIGH",
+        "medium": "🟡 MEDIUM",
+        "low": "🔵 LOW",
+        "info": "ℹ️ INFO",
+        "none": "✨",
+    }
+
     for key, cat in zip(cat_keys, cat_objs, strict=False):
         pct = cat.percentage
         icon = "✅" if pct >= 80 else "⚠️" if pct >= 60 else "❌"
@@ -172,19 +181,54 @@ def _render_markdown(
         lines.append("<details>")
         lines.append(summary_text)
         lines.append("")
-        if cat.penalties:
-            lines.append("**Issues:**")
-            lines.append("")
-            for p in cat.penalties:
-                lines.append(f"- {p}")
-            lines.append("")
-        if cat.recommendations:
-            lines.append("**Recommendations:**")
-            lines.append("")
-            for r in cat.recommendations:
-                lines.append(f"- {r}")
-            lines.append("")
-        if not cat.penalties and not cat.recommendations:
+
+        # Render findings with full metadata if available, fall back to string lists
+        if cat.findings:
+            # Group findings by severity for better readability
+            severity_order = {"high": 0, "medium": 1, "low": 2, "info": 3, "none": 4}
+            sorted_findings = sorted(
+                cat.findings,
+                key=lambda f: severity_order.get(f.severity, 99),
+            )
+            for finding in sorted_findings:
+                sev_badge = SEV_BADGE.get(finding.severity, "•")
+                lines.append(f"### {sev_badge} {finding.message}")
+                lines.append("")
+                if finding.description:
+                    lines.append(finding.description)
+                    lines.append("")
+                if finding.recommendation:
+                    lines.append(f"**Remediation:** {finding.recommendation}")
+                    lines.append("")
+                if finding.references:
+                    lines.append("**References:**")
+                    for ref in finding.references:
+                        lines.append(f"- <{ref}>")
+                    lines.append("")
+                if finding.tags:
+                    tag_pills = " ".join(f"`{t}`" for t in finding.tags)
+                    lines.append(f"_{tag_pills}_")
+                    lines.append("")
+                lines.append("---")
+                lines.append("")
+        else:
+            # Fallback: string lists (backwards compat)
+            if cat.penalties:
+                lines.append("**Issues:**")
+                lines.append("")
+                for p in cat.penalties:
+                    lines.append(f"- {p}")
+                lines.append("")
+            if cat.recommendations:
+                lines.append("**Recommendations:**")
+                lines.append("")
+                for r in cat.recommendations:
+                    lines.append(f"- {r}")
+                lines.append("")
+            if not cat.penalties and not cat.recommendations:
+                lines.append("_No issues — looking good!_")
+                lines.append("")
+        if not cat.findings and not cat.penalties and not cat.recommendations:
             lines.append("_No issues — looking good!_")
             lines.append("")
         lines.append("</details>")
