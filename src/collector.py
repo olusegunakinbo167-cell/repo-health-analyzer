@@ -6,7 +6,7 @@ import os
 
 from .github_client import GitHubClient
 from .metrics.academic_impact import extract_from_files, resolve_paper_references
-from .models import RepoMetrics
+from .models import CodeChurn, CodeComplexity, RepoMetrics
 from .semantic_scholar_client import SemanticScholarClient, SemanticScholarAPIError
 
 
@@ -20,6 +20,7 @@ class RepoCollector:
         *,
         s2_api_key: str | None = None,
         skip_academic_impact: bool = False,
+        local_repo_path: str | None = None,
     ):
         self._client = client
         self._token = token
@@ -32,6 +33,7 @@ class RepoCollector:
         self._skip_academic = skip_academic_impact or (
             os.getenv("REPO_HEALTH_SKIP_ACADEMIC", "").lower() in ("1", "true", "yes")
         )
+        self._local_repo_path = local_repo_path
 
     async def __aenter__(self) -> RepoCollector:
         if self._client is None:
@@ -91,6 +93,30 @@ class RepoCollector:
                 # Never let academic impact collection break the main flow
                 academic_impact = None
 
+        # Code quality metrics (require local repo checkout)
+        code_complexity = None
+        code_churn = None
+        if self._local_repo_path:
+            # Complexity analysis
+            try:
+                from .metrics.complexity import calculate_complexity
+
+                cc_result = calculate_complexity(self._local_repo_path)
+                code_complexity = CodeComplexity.from_dict(cc_result)
+            except Exception:
+                # Fail open — don't let code quality analysis break collection
+                code_complexity = None
+
+            # Churn analysis
+            try:
+                from .metrics.code_churn import calculate_churn
+
+                churn_result = calculate_churn(self._local_repo_path, window_days=90)
+                code_churn = CodeChurn.from_dict(churn_result)
+            except Exception:
+                # Fail open
+                code_churn = None
+
         return RepoMetrics(
             full_name=meta.full_name,
             description=meta.description,
@@ -102,6 +128,8 @@ class RepoCollector:
             ci_cd=ci_cd,
             maintenance=maintenance,
             academic_impact=academic_impact,
+            code_complexity=code_complexity,
+            code_churn=code_churn,
         )
 
     async def collect_by_full_name(self, full_name: str) -> RepoMetrics:

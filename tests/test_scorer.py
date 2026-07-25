@@ -219,3 +219,135 @@ def test_score_repo_grade_boundaries() -> None:
             governance=health.governance,
         )
         assert hs.grade == expected_grade
+
+
+# ── CI/CD & Code Quality (complexity) ──
+
+
+def test_score_ci_cd_with_complexity_a() -> None:
+    """CI/CD with complexity rating A contributes full points."""
+    from src.models import CodeComplexity
+
+    metrics = make_metrics(workflow_count=3)
+    metrics.code_complexity = CodeComplexity(
+        available=True,
+        avg_complexity=3.2,
+        max_complexity=8,
+        total_functions=42,
+        rating="A",
+        high_risk_functions=[],
+    )
+    cat = score_ci_cd(metrics)
+    # 20 pts workflows + 5 pts complexity = 25
+    assert cat.score == 25.0
+    assert cat.name == "CI/CD & Code Quality"
+    assert not any("complexity" in p.lower() for p in cat.penalties)
+
+
+def test_score_ci_cd_with_complexity_c() -> None:
+    """Complexity rating C reduces CI/CD score."""
+    from src.models import CodeComplexity
+
+    metrics = make_metrics(workflow_count=3)
+    metrics.code_complexity = CodeComplexity(
+        available=True,
+        avg_complexity=15.0,
+        max_complexity=22,
+        total_functions=30,
+        rating="C",
+        high_risk_functions=[
+            {"file": "risky.py", "function": "foo", "cc": 18, "lineno": 42}
+        ],
+    )
+    cat = score_ci_cd(metrics)
+    # 20 pts workflows + 3 pts complexity = 23
+    assert cat.score == 23.0
+    assert any("complexity" in p.lower() for p in cat.penalties)
+
+
+def test_score_ci_cd_with_complexity_e() -> None:
+    """Complexity rating E gives zero complexity points."""
+    from src.models import CodeComplexity
+
+    metrics = make_metrics(workflow_count=2)
+    metrics.code_complexity = CodeComplexity(
+        available=True,
+        avg_complexity=30.0,
+        max_complexity=45,
+        total_functions=10,
+        rating="E",
+        high_risk_functions=[],
+    )
+    cat = score_ci_cd(metrics)
+    # 15 pts workflows + 0 pts complexity = 15
+    assert cat.score == 15.0
+    assert any("complexity" in p.lower() for p in cat.penalties)
+
+
+def test_score_ci_cd_complexity_unavailable() -> None:
+    """Missing complexity data does not penalize — score scales to 25."""
+    from src.models import CodeComplexity
+
+    metrics = make_metrics(workflow_count=3)
+    # complexity.available = False — should not penalize
+    metrics.code_complexity = CodeComplexity.unavailable()
+    cat = score_ci_cd(metrics)
+    # 3 workflows = 20 pts, scaled to 25-pt range = 25.0 points
+    assert cat.score == 25.0
+    assert cat.name == "CI/CD & Code Quality"
+
+
+# ── Maintenance (churn) ──
+
+
+def test_score_maintenance_with_low_churn() -> None:
+    """Low churn contributes positively to maintenance score."""
+    from src.models import CodeChurn
+
+    metrics = make_metrics(commits=10, open_issues=2, closed_issues=8)
+    metrics.code_churn = CodeChurn(
+        available=True,
+        churn_score=15,
+        trend="stable",
+        total_insertions=120,
+        total_deletions=30,
+        files_changed=5,
+        hot_files=[],
+    )
+    cat = score_maintenance(metrics)
+    # commits 10 → 8 pts, issue ratio 0.8 → 10 pts, churn 15 → 5 pts = 23
+    # (commit velocity is scaled to 0–10 when churn is available)
+    assert cat.score == 23.0
+    assert any("churn" in r.lower() for r in cat.recommendations)
+
+
+def test_score_maintenance_with_high_churn() -> None:
+    """High rising churn penalizes maintenance score."""
+    from src.models import CodeChurn
+
+    metrics = make_metrics(commits=10, open_issues=2, closed_issues=8)
+    metrics.code_churn = CodeChurn(
+        available=True,
+        churn_score=85,
+        trend="rising",
+        total_insertions=5000,
+        total_deletions=3000,
+        files_changed=25,
+        hot_files=[{"file": "hot.py", "churn": 1200}],
+    )
+    cat = score_maintenance(metrics)
+    # commits 10 → 8 pts, issue ratio 0.8 → 10 pts, churn 85/rising → 0 pts = 18
+    assert cat.score == 18.0
+    assert any("churn" in p.lower() for p in cat.penalties)
+
+
+def test_score_maintenance_churn_unavailable() -> None:
+    """Missing churn data does not penalize — legacy scoring path."""
+    from src.models import CodeChurn
+
+    metrics = make_metrics(commits=25, open_issues=2, closed_issues=18)
+    metrics.code_churn = CodeChurn.unavailable()
+    cat = score_maintenance(metrics)
+    # churn unavailable → legacy path: commits 25 → 15 pts, issue ratio 0.9 → 10 pts = 25
+    assert cat.score == 25.0
+

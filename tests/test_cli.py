@@ -36,7 +36,7 @@ def _make_objects(score: float = 75.0):
         total_score=score,
         documentation=CategoryScore("Documentation", cat_score, 25.0, [], []),
         maintenance=CategoryScore("Maintenance", cat_score, 25.0, [], []),
-        ci_cd=CategoryScore("CI/CD", cat_score, 25.0, [], []),
+        ci_cd=CategoryScore("CI/CD & Code Quality", cat_score, 25.0, [], []),
         governance=CategoryScore(
             "Governance", score - cat_score * 3, 25.0, [], []
         ),
@@ -152,7 +152,7 @@ def test_main_json_output(monkeypatch, capsys) -> None:
                     "recommendations": [],
                 },
                 "ci_cd": {
-                    "name": "CI/CD",
+                    "name": "CI/CD & Code Quality",
                     "score": 0.0,
                     "max_score": 25.0,
                     "penalties": [],
@@ -285,7 +285,7 @@ def test_baseline_comparison(monkeypatch, capsys, tmp_path) -> None:
                         "recommendations": [],
                     },
                     "ci_cd": {
-                        "name": "CI/CD",
+                        "name": "CI/CD & Code Quality",
                         "score": 15.0,
                         "max_score": 25.0,
                         "penalties": [],

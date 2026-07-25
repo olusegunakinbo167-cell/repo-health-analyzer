@@ -44,7 +44,7 @@ def make_sample():
             recommendations=[],
         ),
         ci_cd=CategoryScore(
-            name="CI/CD",
+            name="CI/CD & Code Quality",
             score=20.0,
             penalties=[],
             recommendations=["Consider adding additional CI workflows"],
@@ -106,7 +106,7 @@ def test_render_markdown_output() -> None:
     assert "| Category | Score | Status |" in md
     assert "| Documentation |" in md
     assert "| Maintenance |" in md
-    assert "| CI/CD |" in md
+    assert "| CI/CD & Code Quality |" in md
     assert "| Governance |" in md
 
     # Collapsible diagnostic sections
@@ -164,7 +164,10 @@ def test_render_markdown_zero_score() -> None:
             "Maintenance", 5.0, penalties=["No commits"], recommendations=["Resume dev"]
         ),
         ci_cd=CategoryScore(
-            "CI/CD", 0.0, penalties=["No workflows"], recommendations=["Set up CI"]
+            "CI/CD & Code Quality",
+            0.0,
+            penalties=["No workflows"],
+            recommendations=["Set up CI"],
         ),
         governance=CategoryScore("Governance", 15.0, penalties=[], recommendations=[]),
     )

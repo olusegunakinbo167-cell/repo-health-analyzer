@@ -8,7 +8,10 @@ Code Climate quality gates (A–E).
 from pathlib import Path
 from typing import Any, Dict, List
 
-from radon.complexity import cc_visit
+try:
+    from radon.complexity import cc_visit
+except ImportError:  # pragma: no cover - exercised in test_complexity_missing_dep
+    cc_visit = None  # type: ignore
 
 
 # SonarQube-aligned complexity rating thresholds
@@ -40,6 +43,7 @@ def calculate_complexity(repo_path: str) -> Dict[str, Any]:
 
     Returns:
         dict with:
+            - available: bool (False if radon is not installed)
             - avg_complexity: float (mean CC across all functions)
             - max_complexity: int (highest CC in repo)
             - high_risk_functions: List[dict] where cc > 10
@@ -47,9 +51,21 @@ def calculate_complexity(repo_path: str) -> Dict[str, Any]:
             - rating: str ("A" | "B" | "C" | "D" | "E")
             - total_functions: int
     """
+    # Fail open if radon is not installed
+    if cc_visit is None:
+        return {
+            "available": False,
+            "avg_complexity": 0.0,
+            "max_complexity": 0,
+            "high_risk_functions": [],
+            "rating": "A",
+            "total_functions": 0,
+        }
+
     root = Path(repo_path)
     if not root.exists():
         return {
+            "available": True,
             "avg_complexity": 0.0,
             "max_complexity": 0,
             "high_risk_functions": [],
@@ -99,6 +115,7 @@ def calculate_complexity(repo_path: str) -> Dict[str, Any]:
 
     if not all_cc:
         return {
+            "available": True,
             "avg_complexity": 0.0,
             "max_complexity": 0,
             "high_risk_functions": [],
@@ -113,6 +130,7 @@ def calculate_complexity(repo_path: str) -> Dict[str, Any]:
     high_risk.sort(key=lambda x: (-x["cc"], x["file"], x["function"]))
 
     return {
+        "available": True,
         "avg_complexity": round(avg_cc, 2),
         "max_complexity": max_cc,
         "high_risk_functions": high_risk,

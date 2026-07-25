@@ -13,8 +13,9 @@ from typing import Any, Dict, List
 try:
     from git import Repo
     from git.exc import InvalidGitRepositoryError
-except ImportError:
+except ImportError:  # pragma: no cover - exercised in test_churn_missing_dep
     Repo = None  # type: ignore
+    InvalidGitRepositoryError = Exception  # type: ignore
 
 
 def calculate_churn(repo_path: str, window_days: int = 90) -> Dict[str, Any]:
@@ -30,6 +31,7 @@ def calculate_churn(repo_path: str, window_days: int = 90) -> Dict[str, Any]:
 
     Returns:
         dict with:
+            - available: bool (False if GitPython is not installed)
             - churn_score: int (0-100, normalized)
             - hot_files: List[dict] top 10 files by churn count
             - trend: str ("rising" | "stable" | "falling")
@@ -37,13 +39,23 @@ def calculate_churn(repo_path: str, window_days: int = 90) -> Dict[str, Any]:
             - total_deletions: int
             - files_changed: int
     """
+    # Fail open if GitPython is not installed
     if Repo is None:
-        raise ImportError("GitPython is required for code churn analysis (pip install gitpython)")
+        return {
+            "available": False,
+            "churn_score": 0,
+            "hot_files": [],
+            "trend": "stable",
+            "total_insertions": 0,
+            "total_deletions": 0,
+            "files_changed": 0,
+        }
 
     try:
         repo = Repo(repo_path)
     except (InvalidGitRepositoryError, Exception):
         return {
+            "available": True,
             "churn_score": 0,
             "hot_files": [],
             "trend": "stable",
@@ -63,6 +75,7 @@ def calculate_churn(repo_path: str, window_days: int = 90) -> Dict[str, Any]:
 
     if not commits:
         return {
+            "available": True,
             "churn_score": 0,
             "hot_files": [],
             "trend": "stable",
@@ -157,6 +170,7 @@ def calculate_churn(repo_path: str, window_days: int = 90) -> Dict[str, Any]:
             trend = "stable"
 
     return {
+        "available": True,
         "churn_score": churn_score,
         "hot_files": hot_files,
         "trend": trend,
