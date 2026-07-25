@@ -434,7 +434,7 @@ def test_academic_impact_properties() -> None:
 
 
 def test_score_academic_impact_bonus_none() -> None:
-    score, penalties, recs = score_academic_impact_bonus(None)
+    score, penalties, recs, _ = score_academic_impact_bonus(None)
     assert score == 0.0
     assert penalties == []
     assert recs == []
@@ -452,21 +452,21 @@ def test_score_academic_impact_bonus_tiers() -> None:
         return AcademicImpact(papers_referenced=papers)
 
     # 1-2 papers → 2 pts
-    score, _, _ = score_academic_impact_bonus(mk_impact(1))
+    score, _, _, _ = score_academic_impact_bonus(mk_impact(1))
     assert score == 2.0
-    score, _, _ = score_academic_impact_bonus(mk_impact(2))
+    score, _, _, _ = score_academic_impact_bonus(mk_impact(2))
     assert score == 2.0
 
     # 3-5 papers → 3.5 pts
-    score, _, _ = score_academic_impact_bonus(mk_impact(3))
+    score, _, _, _ = score_academic_impact_bonus(mk_impact(3))
     assert score == 3.5
-    score, _, _ = score_academic_impact_bonus(mk_impact(5))
+    score, _, _, _ = score_academic_impact_bonus(mk_impact(5))
     assert score == 3.5
 
     # 6+ papers → 5 pts
-    score, _, _ = score_academic_impact_bonus(mk_impact(6))
+    score, _, _, _ = score_academic_impact_bonus(mk_impact(6))
     assert score == 5.0
-    score, _, _ = score_academic_impact_bonus(mk_impact(10))
+    score, _, _, _ = score_academic_impact_bonus(mk_impact(10))
     assert score == 5.0
 
 
@@ -483,7 +483,7 @@ def test_score_academic_impact_high_citation_bonus() -> None:
     ]
     impact = AcademicImpact(papers_referenced=papers)
     # 2 papers base = 2.0, high citations (>=100 avg) → +1 = 3.0
-    score, _, _ = score_academic_impact_bonus(impact)
+    score, _, _, _ = score_academic_impact_bonus(impact)
     assert score == 3.0
 
 
@@ -497,7 +497,7 @@ def test_score_academic_impact_recency_nudge() -> None:
         ),
     ]
     impact = AcademicImpact(papers_referenced=papers)
-    score, _, _ = score_academic_impact_bonus(impact)
+    score, _, _, _ = score_academic_impact_bonus(impact)
     assert score >= 2.0
 
 
@@ -514,7 +514,7 @@ def test_score_academic_impact_recommendations() -> None:
         ),
     ]
     impact = AcademicImpact(papers_referenced=papers)
-    score, penalties, recs = score_academic_impact_bonus(impact)
+    score, penalties, recs, _ = score_academic_impact_bonus(impact)
 
     # Should recommend OA and newer papers
     rec_text = " ".join(recs).lower()
