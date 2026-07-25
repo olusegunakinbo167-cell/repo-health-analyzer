@@ -239,6 +239,245 @@ def cmd_movies_seats(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── Embark / dog DNA subcommand ──
+
+def _add_embark_subparsers(subparsers: argparse._SubParsersAction) -> None:
+    embark = subparsers.add_parser(
+        "embark",
+        help="Dog breed traits and genetic health information (via Embark)",
+        description="Dog breed traits and genetic health information (via Embark). "
+        "Fun dev-downtime subcommand — not part of repo health scoring.",
+    )
+    e_sub = embark.add_subparsers(dest="embark_cmd", required=True)
+
+    # breeds search
+    p = e_sub.add_parser("breeds", help="Search dog breeds")
+    p.add_argument("--query", help="Breed name search term (optional, omit for all)")
+    p.add_argument("--live", action="store_true", help="Force live scrape (may trigger CF WAF)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_embark_breeds)
+
+    # breeds get
+    p = e_sub.add_parser("breed", help="Get full breed profile")
+    p.add_argument("--breed-slug", required=True, help="Breed slug (e.g. golden-retriever)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_embark_breed_get)
+
+    # health search
+    p = e_sub.add_parser("health-search", help="Search genetic health conditions")
+    p.add_argument("--query", help="Condition/gene search term (optional, omit for all)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_embark_health_search)
+
+    # health get
+    p = e_sub.add_parser("health", help="Get health condition detail")
+    p.add_argument("--condition-slug", required=True, help="Condition slug (e.g. mdr1-drug-sensitivity)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_embark_health_get)
+
+    # traits
+    p = e_sub.add_parser("traits", help="List/search genetic traits")
+    p.add_argument("--query", help="Trait/gene search term (optional, omit for all)")
+    p.add_argument("--live", action="store_true", help="Force live scrape (may trigger CF WAF)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_embark_traits)
+
+
+def cmd_embark_breeds(args: argparse.Namespace) -> int:
+    from .metrics.embark import search_breeds
+
+    try:
+        result = search_breeds(query=args.query, live=args.live)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        # Friendly CF WAF hint
+        if "waf" in str(exc).lower() or "cloudflare" in str(exc).lower():
+            print(
+                "Hint: Embark is behind Cloudflare Bot Management. "
+                "Set EMBARK_COOKIE or EMBARK_COOKIE_FILE with a browser session cookie, "
+                "or use cached mode (omit --live).",
+                file=sys.stderr,
+            )
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    q = args.query or "(all)"
+    console.print(f"[bold]Breeds matching \"{q}\"[/bold] — {len(result)} result(s)\n")
+    if not result:
+        console.print("No matches.", style="dim")
+        return 0
+    tbl = Table(show_header=True)
+    tbl.add_column("Name")
+    tbl.add_column("Slug", style="cyan")
+    tbl.add_column("URL", style="dim")
+    for b in result:
+        tbl.add_row(b.get("name", "?"), b.get("slug", "?"), b.get("url", ""))
+    console.print(tbl)
+    return 0
+
+
+def cmd_embark_breed_get(args: argparse.Namespace) -> int:
+    from .metrics.embark import get_breed
+
+    try:
+        result = get_breed(args.breed_slug)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        if "waf" in str(exc).lower() or "cloudflare" in str(exc).lower():
+            print(
+                "Hint: Embark is behind Cloudflare Bot Management. "
+                "Set EMBARK_COOKIE or EMBARK_COOKIE_FILE with a browser session cookie.",
+                file=sys.stderr,
+            )
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]{result.get('name', args.breed_slug)}[/bold]")
+    console.print(f"[dim]{result.get('url', '')}[/dim]\n")
+    for key in ("description", "fun_fact", "about", "physical_characteristics", "playtime", "grooming", "health_aging"):
+        val = result.get(key)
+        if val:
+            label = key.replace("_", " ").title()
+            console.print(f"[bold]{label}:[/bold] {val}\n")
+    size = result.get("size")
+    weight = result.get("weight_lbs")
+    if size:
+        console.print(f"[bold]Size:[/bold] {size.get('height_inches_min')}–{size.get('height_inches_max')} inches")
+    if weight:
+        console.print(f"[bold]Weight:[/bold] {weight.get('min')}–{weight.get('max')} lbs")
+    conditions = result.get("health_conditions_tested", [])
+    if conditions:
+        console.print(f"\n[bold]Health conditions tested ({len(conditions)}):[/bold]")
+        for c in conditions:
+            console.print(f"  • {c.get('name', '?')} [dim]({c.get('slug', '?')})[/dim]")
+    return 0
+
+
+def cmd_embark_health_search(args: argparse.Namespace) -> int:
+    from .metrics.embark import search_health
+
+    try:
+        result = search_health(query=args.query)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        if "waf" in str(exc).lower() or "cloudflare" in str(exc).lower():
+            print(
+                "Hint: Embark is behind Cloudflare Bot Management. "
+                "Set EMBARK_COOKIE or EMBARK_COOKIE_FILE with a browser session cookie.",
+                file=sys.stderr,
+            )
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    q = args.query or "(all)"
+    console.print(f"[bold]Health conditions matching \"{q}\"[/bold] — {len(result)} result(s)\n")
+    if not result:
+        console.print("No matches.", style="dim")
+        return 0
+    tbl = Table(show_header=True)
+    tbl.add_column("Name")
+    tbl.add_column("Gene", style="cyan")
+    tbl.add_column("Category", style="dim")
+    tbl.add_column("Slug", style="dim")
+    for c in result:
+        tbl.add_row(
+            c.get("name", "?"),
+            c.get("gene") or "—",
+            c.get("category") or "—",
+            c.get("slug", "?"),
+        )
+    console.print(tbl)
+    return 0
+
+
+def cmd_embark_health_get(args: argparse.Namespace) -> int:
+    from .metrics.embark import get_health
+
+    try:
+        result = get_health(args.condition_slug)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        if "waf" in str(exc).lower() or "cloudflare" in str(exc).lower():
+            print(
+                "Hint: Embark is behind Cloudflare Bot Management. "
+                "Set EMBARK_COOKIE or EMBARK_COOKIE_FILE with a browser session cookie.",
+                file=sys.stderr,
+            )
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]{result.get('name', args.condition_slug)}[/bold]")
+    console.print(f"[dim]{result.get('url', '')}[/dim]\n")
+    if result.get("gene_names"):
+        console.print(f"[bold]Gene:[/bold] {result['gene_names']}")
+    if result.get("inheritance_type"):
+        console.print(f"[bold]Inheritance:[/bold] {result['inheritance_type']}\n")
+    if result.get("description"):
+        console.print(f"{result['description']}\n")
+    for key, label in [
+        ("signs_symptoms", "Signs & Symptoms"),
+        ("diagnosis", "Diagnosis"),
+        ("treatment", "Treatment"),
+    ]:
+        val = result.get(key)
+        if val:
+            console.print(f"[bold]{label}:[/bold] {val}\n")
+    breeds = result.get("affected_breeds", [])
+    if breeds:
+        console.print(f"[bold]Affected breeds ({len(breeds)}):[/bold]")
+        for b in breeds[:20]:
+            console.print(f"  • {b.get('name', '?')} [dim]({b.get('slug', '?')})[/dim]")
+        if len(breeds) > 20:
+            console.print(f"  [dim]… and {len(breeds) - 20} more[/dim]")
+    return 0
+
+
+def cmd_embark_traits(args: argparse.Namespace) -> int:
+    from .metrics.embark import list_traits
+
+    try:
+        result = list_traits(query=args.query, live=args.live)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        if "waf" in str(exc).lower() or "cloudflare" in str(exc).lower():
+            print(
+                "Hint: Embark is behind Cloudflare Bot Management. "
+                "Set EMBARK_COOKIE or EMBARK_COOKIE_FILE with a browser session cookie, "
+                "or use cached mode (omit --live).",
+                file=sys.stderr,
+            )
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    q = args.query or "(all)"
+    console.print(f"[bold]Traits matching \"{q}\"[/bold] — {len(result)} result(s)\n")
+    if not result:
+        console.print("No matches.", style="dim")
+        return 0
+    tbl = Table(show_header=True)
+    tbl.add_column("Trait")
+    tbl.add_column("Gene", style="cyan")
+    tbl.add_column("Category", style="dim")
+    for t in result:
+        tbl.add_row(
+            t.get("name", "?"),
+            t.get("gene", "?"),
+            t.get("category") or "—",
+        )
+    console.print(tbl)
+    return 0
+
+
 # ── Repo health analysis ──
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -250,6 +489,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     # movies subcommand
     _add_movies_subparsers(subparsers)
+
+    # embark subcommand
+    _add_embark_subparsers(subparsers)
 
     # analyze (default) — repository health check
     analyze = subparsers.add_parser(
@@ -337,7 +579,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # matching pre-subparser behavior.
     if argv is None:
         argv = sys.argv[1:]
-    if argv and not argv[0].startswith("-") and argv[0] not in ("movies", "analyze"):
+    if argv and not argv[0].startswith("-") and argv[0] not in ("movies", "embark", "analyze"):
         # Rewrite: repo-health-analyzer owner/repo ... → repo-health-analyzer analyze owner/repo ...
         argv = ["analyze", *argv]
 

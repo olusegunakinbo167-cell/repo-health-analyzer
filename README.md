@@ -19,6 +19,9 @@ repo-health-analyzer analyze owner/repo [options]
 
 # Movie showtimes / theater listings (dev downtime 🎬)
 repo-health-analyzer movies <command> [options]
+
+# Dog breed traits / genetic health info (dev downtime 🐕)
+repo-health-analyzer embark <command> [options]
 ```
 
 ### Analyze options
@@ -96,6 +99,44 @@ repo-health-analyzer movies seats v2-d6971c7a5447715c79f18ac5c95ddca946140ce13d2
 ```
 
 All movie commands support `--json` for scripting. Movie/theater IDs come from Fandango URLs, e.g. `/the-odyssey-2026-241283/movie-overview` → movie ID `241283`.
+
+### Embark subcommand (dev downtime 🐕)
+
+`repo-health-analyzer embark` wraps the [OpenClaw Embark Dog DNA CLI](https://github.com/openclaw/openclaw) for looking up dog breeds, genetic traits, and health conditions — another fun easter egg for dev downtime, not part of repo health scoring.
+
+Requires Node.js and the Embark CLI installed at `~/.openclaw/extensions/embark/embark.js` (override with `EMBARK_CLI=/path/to/embark.js`). All commands are read-only.
+
+`breeds` and `traits` use offline cached data by default (~400 breeds, ~30 traits), avoiding Cloudflare WAF blocks. Use `--live` to force a fresh scrape from embarkvet.com.
+
+`breed`, `health-search`, and `health` require live HTTP requests to embarkvet.com and may be blocked by Cloudflare Bot Management on AWS/datacenter IPs. Set `EMBARK_COOKIE` or `EMBARK_COOKIE_FILE` with a valid browser session cookie to bypass.
+
+```bash
+# Search dog breeds (offline cached, default)
+repo-health-analyzer embark breeds --query retriever
+
+# Search all breeds
+repo-health-analyzer embark breeds
+
+# Force live breed scrape (may trigger CF WAF)
+repo-health-analyzer embark breeds --query poodle --live
+
+# Get full breed profile (live, may need CF cookie)
+repo-health-analyzer embark breed --breed-slug golden-retriever
+
+# Search genetic health conditions (live)
+repo-health-analyzer embark health-search --query mdr1
+
+# Get health condition detail (live)
+repo-health-analyzer embark health --condition-slug mdr1-drug-sensitivity
+
+# List/search genetic traits (offline cached, default)
+repo-health-analyzer embark traits --query coat
+
+# Force live trait scrape
+repo-health-analyzer embark traits --live
+```
+
+All Embark commands support `--json` for scripting.
 
 Or via module:
 

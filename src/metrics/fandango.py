@@ -9,66 +9,33 @@ This is a fun dev-downtime subcommand, not part of repository health scoring.
 
 from __future__ import annotations
 
-import json
-import os
-import shutil
-import subprocess
 from pathlib import Path
 from typing import Any
 
+from ._external_cli import ExternalCLI
 
-FANDANGO_CLI_CANDIDATES = [
-    Path.home() / ".openclaw" / "extensions" / "fandango" / "fandango.js",
-    Path("/home/ubuntu/.openclaw/workspace/extensions/fandango/fandango.js"),
-]
+
+_FANDANGO_CLI = ExternalCLI(
+    name="fandango",
+    cli_filename="fandango.js",
+    env_var="FANDANGO_CLI",
+    candidates=[
+        Path.home() / ".openclaw" / "extensions" / "fandango" / "fandango.js",
+        Path("/home/ubuntu/.openclaw/workspace/extensions/fandango/fandango.js"),
+    ],
+    json_flag="--json",
+    node_required=True,
+)
 
 
 def find_fandango_cli() -> Path:
     """Locate the fandango.js CLI."""
-    # 1. Env override
-    env_path = os.getenv("FANDANGO_CLI")
-    if env_path:
-        p = Path(env_path)
-        if p.exists():
-            return p
-    # 2. Known install locations
-    for candidate in FANDANGO_CLI_CANDIDATES:
-        if candidate.exists():
-            return candidate
-    # 3. PATH lookup
-    which = shutil.which("fandango")
-    if which:
-        return Path(which)
-    raise FileNotFoundError(
-        "fandango.js CLI not found. Tried: "
-        + ", ".join(str(c) for c in FANDANGO_CLI_CANDIDATES)
-        + ". Set FANDANGO_CLI=/path/to/fandango.js to override."
-    )
+    return _FANDANGO_CLI.find_cli()
 
 
 def _run_fandango(args: list[str], timeout: float = 20.0) -> Any:
     """Invoke fandango.js with --json and return parsed output."""
-    cli = find_fandango_cli()
-    cmd = ["node", str(cli), *args, "--json"]
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"fandango CLI timed out after {timeout}s: {exc}") from exc
-
-    if proc.returncode != 0:
-        err = proc.stderr.strip() or proc.stdout.strip() or "unknown error"
-        raise RuntimeError(f"fandango CLI failed (exit {proc.returncode}): {err}")
-
-    try:
-        return json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"fandango CLI returned invalid JSON: {exc}\n{proc.stdout[:500]}") from exc
+    return _FANDANGO_CLI.run_json(args, timeout=timeout)
 
 
 # ── Public API ──

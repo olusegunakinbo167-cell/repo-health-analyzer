@@ -22,9 +22,14 @@ def test_find_fandango_cli_env_override(tmp_path, monkeypatch):
 
 def test_find_fandango_cli_not_found(monkeypatch):
     monkeypatch.delenv("FANDANGO_CLI", raising=False)
-    with patch.object(fandango, "FANDANGO_CLI_CANDIDATES", []):
+    # Patch the internal ExternalCLI instance's candidates list
+    from src.metrics import fandango as fandango_mod
+
+    with patch.object(fandango_mod._FANDANGO_CLI, "candidates", []):
+        # Clear cached CLI path
+        fandango_mod._FANDANGO_CLI._cached_cli_path = None
         with patch("shutil.which", return_value=None):
-            with pytest.raises(FileNotFoundError, match="fandango.js CLI not found"):
+            with pytest.raises(FileNotFoundError, match="fandango.*CLI.*not found"):
                 fandango.find_fandango_cli()
 
 
