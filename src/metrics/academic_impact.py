@@ -491,6 +491,9 @@ def score_academic_impact_bonus(
     if impact is None or impact.paper_count == 0:
         return 0.0, [], []
 
+    # Lazy import to avoid circular dependency (scorer -> academic_impact -> definitions -> scorer)
+    from ..definitions import resolve as _resolve
+
     n = impact.paper_count
     resolved = impact.resolved_count
 
@@ -515,22 +518,24 @@ def score_academic_impact_bonus(
     if impact.recent_papers_count() > 0 and 0 < score < 2.0:
         score = 2.0
 
-    # Penalties / recommendations
+    # Penalties / recommendations — sourced from metric definitions registry
     if resolved < n:
         unresolved = n - resolved
-        penalties.append(
-            f"{unresolved} referenced paper(s) could not be resolved via Semantic Scholar"
+        msg, rec = _resolve(
+            "academic_impact", "academic_unresolved_papers", unresolved=unresolved
         )
+        penalties.append(msg)
+        if rec:
+            recommendations.append(rec)
 
     if impact.open_access_ratio < 0.5 and resolved >= 2:
-        recommendations.append(
-            "Consider referencing open-access versions of papers where available"
-        )
+        msg, rec = _resolve("academic_impact", "academic_low_open_access")
+        # academic_low_open_access has an empty message (it's a recommendation-only rule),
+        # so use the recommendation field
+        recommendations.append(rec or msg)
 
     if impact.recent_papers_count() == 0 and resolved > 0:
-        recommendations.append(
-            "Referenced papers are all older than 3 years — "
-            "check if newer related work exists"
-        )
+        msg, rec = _resolve("academic_impact", "academic_stale_papers")
+        recommendations.append(rec or msg)
 
     return round(score, 2), penalties, recommendations
