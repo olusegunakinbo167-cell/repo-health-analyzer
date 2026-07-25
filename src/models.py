@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -59,6 +60,89 @@ class MaintenanceActivity:
 
 
 @dataclass(slots=True)
+class CodeComplexity:
+    """Cyclomatic complexity analysis results.
+
+    Measures independent code paths per function/method.
+    Maps to SonarQube / Code Climate quality gates (A–E).
+    """
+
+    available: bool
+    avg_complexity: float
+    max_complexity: int
+    total_functions: int
+    rating: str  # "A" | "B" | "C" | "D" | "E"
+    high_risk_functions: list[dict[str, Any]] = field(default_factory=list)
+
+    @classmethod
+    def unavailable(cls) -> CodeComplexity:
+        """Fallback when radon is not installed."""
+        return cls(
+            available=False,
+            avg_complexity=0.0,
+            max_complexity=0,
+            total_functions=0,
+            rating="A",
+            high_risk_functions=[],
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CodeComplexity:
+        """Construct from calculate_complexity() result dict."""
+        return cls(
+            available=data.get("available", True),
+            avg_complexity=data.get("avg_complexity", 0.0),
+            max_complexity=data.get("max_complexity", 0),
+            total_functions=data.get("total_functions", 0),
+            rating=data.get("rating", "A"),
+            high_risk_functions=data.get("high_risk_functions", []),
+        )
+
+
+@dataclass(slots=True)
+class CodeChurn:
+    """Code churn / hotspot analysis results.
+
+    Measures how frequently files/lines are modified.
+    High-churn hotspots indicate unstable areas and maintenance risk.
+    """
+
+    available: bool
+    churn_score: int  # 0–100, normalized
+    trend: str  # "rising" | "stable" | "falling"
+    total_insertions: int
+    total_deletions: int
+    files_changed: int
+    hot_files: list[dict[str, Any]] = field(default_factory=list)
+
+    @classmethod
+    def unavailable(cls) -> CodeChurn:
+        """Fallback when GitPython is not installed or repo is not a git repo."""
+        return cls(
+            available=False,
+            churn_score=0,
+            trend="stable",
+            total_insertions=0,
+            total_deletions=0,
+            files_changed=0,
+            hot_files=[],
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CodeChurn:
+        """Construct from calculate_churn() result dict."""
+        return cls(
+            available=data.get("available", True),
+            churn_score=data.get("churn_score", 0),
+            trend=data.get("trend", "stable"),
+            total_insertions=data.get("total_insertions", 0),
+            total_deletions=data.get("total_deletions", 0),
+            files_changed=data.get("files_changed", 0),
+            hot_files=data.get("hot_files", []),
+        )
+
+
+@dataclass(slots=True)
 class RepoMetrics:
     """Aggregated repository health telemetry."""
 
@@ -74,6 +158,9 @@ class RepoMetrics:
     # Optional: academic impact (paper references in repo docs)
     # Import is TYPE_CHECKING guarded to avoid circular import
     academic_impact: "AcademicImpact | None" = None  # type: ignore[name-defined]
+    # Optional: code quality metrics (require local repo checkout)
+    code_complexity: CodeComplexity | None = None
+    code_churn: CodeChurn | None = None
 
 
 # ----------------------------------------------------------------------

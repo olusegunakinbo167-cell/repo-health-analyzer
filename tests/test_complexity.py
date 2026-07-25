@@ -82,3 +82,21 @@ def risky(a,b,c,d,e,f,g,h,i,j,k):
         assert all(k in hr for k in ("file", "function", "cc", "lineno"))
         assert hr["cc"] > 10
         assert hr["function"] == "risky"
+
+
+def test_complexity_missing_radon_dependency(monkeypatch) -> None:
+    """calculate_complexity fails open with available=False when radon is missing."""
+    import src.metrics.complexity as complexity_mod
+
+    # Simulate radon not being installed
+    monkeypatch.setattr(complexity_mod, "cc_visit", None, raising=False)
+
+    result = complexity_mod.calculate_complexity("/tmp/doesnt_matter")
+
+    assert result["available"] is False
+    assert result["rating"] == "A"
+    assert result["total_functions"] == 0
+    assert result["avg_complexity"] == 0.0
+    assert result["max_complexity"] == 0
+    assert result["high_risk_functions"] == []
+

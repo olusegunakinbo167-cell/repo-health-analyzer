@@ -145,11 +145,29 @@ def render_rich(
     )
     workflows = ", ".join(ci.workflow_files) or "(none)"
     console.print(f"  CI/CD: {ci.workflow_count} workflow(s) — {workflows}")
+    # Code complexity
+    complexity = getattr(metrics, "code_complexity", None)
+    if complexity and complexity.available:
+        hr_count = len(complexity.high_risk_functions)
+        hr_str = f", {hr_count} high-risk fn(s)" if hr_count else ""
+        console.print(
+            f"  Code Quality: CC rating {complexity.rating} "
+            f"(avg {complexity.avg_complexity:.1f}, max {complexity.max_complexity}, "
+            f"{complexity.total_functions} functions{hr_str})"
+        )
     console.print(
         f"  Maintenance: {maint.commits_last_90_days} commits/90d, "
         f"issues {maint.open_issues} open / {maint.closed_issues} closed, "
         f"{maint.stale_prs} stale PR(s)"
     )
+    # Code churn
+    churn = getattr(metrics, "code_churn", None)
+    if churn and churn.available:
+        console.print(
+            f"  Churn: score {churn.churn_score}/100, trend {churn.trend}, "
+            f"{churn.files_changed} files changed, "
+            f"+{churn.total_insertions}/-{churn.total_deletions} lines"
+        )
     # Academic impact
     academic = getattr(metrics, "academic_impact", None)
     if academic and academic.paper_count > 0:
@@ -342,11 +360,31 @@ def render_markdown(
     lines.append(f"| CI/CD workflows | {ci.workflow_count} |")
     if ci.workflow_files:
         lines.append(f"| Workflow files | {', '.join(f'`{w}`' for w in ci.workflow_files)} |")
+    # Code complexity
+    complexity = getattr(metrics, "code_complexity", None)
+    if complexity and complexity.available:
+        lines.append(f"| Code complexity rating | {complexity.rating} |")
+        lines.append(
+            f"| Avg / max complexity | {complexity.avg_complexity:.1f} / {complexity.max_complexity} |"
+        )
+        lines.append(f"| Functions analyzed | {complexity.total_functions} |")
+        lines.append(
+            f"| High-risk functions (CC > 10) | {len(complexity.high_risk_functions)} |"
+        )
     lines.append(f"| Commits (90d) | {maint.commits_last_90_days} |")
     lines.append(f"| Open issues | {maint.open_issues} |")
     lines.append(f"| Closed issues | {maint.closed_issues} |")
     lines.append(f"| Issue close ratio | {maint.issue_close_ratio:.0%} |")
     lines.append(f"| Stale PRs (>30d) | {maint.stale_prs} |")
+    # Code churn
+    churn = getattr(metrics, "code_churn", None)
+    if churn and churn.available:
+        lines.append(f"| Code churn score | {churn.churn_score}/100 |")
+        lines.append(f"| Churn trend | {churn.trend} |")
+        lines.append(f"| Files changed (90d) | {churn.files_changed} |")
+        lines.append(
+            f"| Lines changed (90d) | +{churn.total_insertions}/-{churn.total_deletions} |"
+        )
     if metrics.commit_sha:
         lines.append(f"| Commit SHA | `{metrics.commit_sha}` |")
     # Academic impact

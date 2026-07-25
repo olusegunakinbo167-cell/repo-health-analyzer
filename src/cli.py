@@ -259,7 +259,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     analyze.add_argument(
         "repository",
-        help="Target repository in owner/repo format (e.g. 'octocat/Hello-World')",
+        help="Target repository — either 'owner/repo' format (e.g. 'octocat/Hello-World') "
+        "or a local directory path (e.g. '.' or './myrepo'). "
+        "Local paths auto-enable code complexity and churn analysis, "
+        "with owner/repo inferred from git remote origin.",
     )
     analyze.add_argument(
         "--token",
@@ -324,6 +327,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "category score deltas are shown in terminal and Markdown output",
     )
     analyze.add_argument(
+        "--local-path",
+        metavar="PATH",
+        type=Path,
+        default=None,
+        help="Path to a local checkout of the repository — "
+        "enables code complexity and churn analysis (requires radon, gitpython). "
+        "If the repository argument is already a local directory, this is auto-detected "
+        "and --local-path is optional (use to override).",
+    )
+    analyze.add_argument(
         "--no-color",
         action="store_true",
         help="Disable Rich color output in terminal",
@@ -350,6 +363,7 @@ async def run(
     config_path: Path | None = None,
     s2_api_key: str | None = None,
     skip_academic: bool = False,
+    local_repo_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Collect repository metrics, score them, and return full payload.
 
@@ -358,8 +372,52 @@ async def run(
     """
     resolved_token = token or os.getenv("GITHUB_TOKEN")
 
+    # Auto-detect local directory: if repository looks like a local path,
+    # use it for code quality analysis and try to infer owner/repo from git remote
+    auto_local_path = None
+    repo_path_candidate = Path(repository)
+    if repo_path_candidate.exists() and repo_path_candidate.is_dir():
+        auto_local_path = repo_path_candidate.resolve()
+        # Try to infer owner/repo from git remote
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["git", "config", "--get", "remote.origin.url"],
+                cwd=str(auto_local_path),
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if result.returncode == 0:
+                remote_url = result.stdout.strip()
+                # Parse owner/repo from remote URL
+                # Supports: https://github.com/owner/repo.git
+                #           git@github.com:owner/repo.git
+                #           https://github.com/owner/repo
+                import re
+
+                m = re.search(r"github\.com[:/]([^/]+)/([^/\s]+?)(?:\.git)?$", remote_url)
+                if m:
+                    owner, repo_name = m.group(1), m.group(2)
+                    repository = f"{owner}/{repo_name}"
+        except Exception:
+            # Git remote parsing failed — fall through to normal owner/repo validation
+            pass
+
+    # If --local-path wasn't explicitly provided, use auto-detected path
+    if local_repo_path is None and auto_local_path is not None:
+        local_repo_path = auto_local_path
+
     # Parse repository owner/name for config fetching
     if "/" not in repository:
+        # Check if this was a local path that failed git remote parsing
+        if auto_local_path is not None:
+            raise ValueError(
+                f"Could not determine GitHub owner/repo from git remote in {auto_local_path}. "
+                f"Please specify the repository as 'owner/repo' and use --local-path {auto_local_path} "
+                f"to enable code complexity and churn analysis."
+            )
         raise ValueError(f"Repository must be in 'owner/repo' format, got: {repository!r}")
     owner, repo_name = repository.split("/", 1)
 
@@ -379,6 +437,7 @@ async def run(
             client=gh_client,
             s2_api_key=s2_api_key,
             skip_academic_impact=skip_academic,
+            local_repo_path=str(local_repo_path) if local_repo_path else None,
         )
         metrics = await collector.collect_by_full_name(repository)
 
@@ -453,6 +512,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 args.config,
                 s2_api_key=getattr(args, "s2_api_key", None),
                 skip_academic=getattr(args, "skip_academic", False),
+                local_repo_path=getattr(args, "local_path", None),
             )
         )
     except ValueError as exc:

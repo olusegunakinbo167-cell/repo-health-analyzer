@@ -2,7 +2,7 @@
 
 GitHub repository health analysis tool.
 
-Analyzes repositories across 4 categories (Documentation, Maintenance, CI/CD, Governance) with an optional academic impact score that surfaces research paper references and citation metrics.
+Analyzes repositories across 4 categories — Documentation, Maintenance, **CI/CD & Code Quality**, and Governance — with optional code complexity (radon/cyclomatic), code churn hotspot detection, and academic impact scoring that surfaces research paper references and citation metrics.
 
 ## Install
 
@@ -28,6 +28,7 @@ repo-health-analyzer movies <command> [options]
 | `--token TOKEN` | GitHub personal access token (default: `GITHUB_TOKEN` env var) |
 | `--s2-api-key KEY` | Semantic Scholar API key for academic impact metrics (default: `S2_API_KEY` / `SEMANTIC_SCHOLAR_API_KEY` env var) |
 | `--skip-academic` | Skip academic impact / paper reference scanning (faster, no S2 API calls) |
+| `--local-path PATH` | Path to a local checkout — enables code complexity and churn analysis (requires `radon`, `gitpython`). Auto-detected if the repository argument is a local directory. |
 | `--json` | Output results as JSON |
 | `--markdown PATH` | Write a GitHub-flavored Markdown report to PATH (suitable for `$GITHUB_STEP_SUMMARY` or PR comments) |
 | `--min-score N` | Quality gate threshold — exit with code 1 if health score is below N (default: 70.0) |
@@ -51,11 +52,71 @@ An S2 API key is recommended for reliable lookups — unauthenticated requests s
 
 To disable academic impact scanning entirely (offline / CI environments), use `--skip-academic` or set `REPO_HEALTH_SKIP_ACADEMIC=1`.
 
+### Scoring categories
+
+#### Documentation (25 pts)
+- README — 10 pts
+- LICENSE — 5 pts
+- CONTRIBUTING.md — 5 pts
+- CODE_OF_CONDUCT.md — 5 pts
+- Academic impact bonus — up to +5 pts (capped at 25), for research paper references in docs
+
+#### Maintenance (25 pts)
+- Commit velocity — 10 pts (with churn data) / 15 pts (legacy, no churn)
+  - ≥20 commits/90d → 10/15 pts
+  - ≥10 commits/90d → 8/12 pts
+  - ≥5 commits/90d → 5/8 pts
+  - ≥1 commits/90d → 2/4 pts
+- Issue close ratio — 10 pts
+  - ≥80% → 10 pts, ≥60% → 7 pts, ≥40% → 4 pts, <40% → 1 pt
+- Code churn — 0–5 pts (requires `--local-path` / local directory)
+  - Churn score ≤25 → 5 pts, ≤50 → 3 pts, ≤75 → 1 pt, >75 → 0 pts
+  - Trend adjustment: falling +1 pt, rising −1 pt
+  - High-churn hotspot files are flagged in recommendations
+- Bus factor penalty — up to −5 pts if top author owns >70% of commits
+
+#### CI/CD & Code Quality (25 pts)
+- Workflow count — 0–20 pts
+  - 3+ workflows → 20 pts, 2 → 15 pts, 1 → 10 pts
+- Code complexity — 0–5 pts (requires `--local-path` / local directory)
+  - Cyclomatic complexity via `radon`, SonarQube-aligned A–E rating
+  - Rating A/B → 5 pts, C → 3 pts, D → 1 pt, E → 0 pts
+  - High-risk functions (CC > 10) are flagged with file/line
+  - If complexity data is unavailable, workflow score scales to 25 pts (no penalty)
+
+#### Governance (25 pts)
+- LICENSE file presence — 10 pts
+- Stale PR ratio — 15 pts
+  - 0 stale PRs → 15 pts, ≤10% stale → 10 pts, ≤25% stale → 5 pts, >25% → 0 pts
+
+### Code quality analysis (complexity & churn)
+
+Code complexity and churn metrics require a local checkout of the repository:
+
+```bash
+# Auto-detect: pass a local directory as the repository argument
+repo-health-analyzer analyze ./myrepo --skip-academic
+
+# Explicit override
+repo-health-analyzer analyze myorg/myrepo --local-path ./myrepo
+```
+
+- **Complexity** — Cyclomatic complexity per function via [`radon`](https://radon.readthedocs.io/), mapped to SonarQube A–E ratings. Install with `pip install radon>=6.0`
+- **Churn** — Git history analysis (insertions/deletions per file, 90-day window), hotspot detection, trend tracking. Install with `pip install gitpython>=3.1`
+
+Both are optional dependencies — if missing, the analyzer fails open with no penalty to the score.
+
 ### Examples
 
 ```bash
-# Basic analysis
+# Basic analysis (GitHub API only)
 repo-health-analyzer octocat/Hello-World
+
+# Analyze a local checkout — auto-enables complexity + churn
+repo-health-analyzer ./myrepo --skip-academic
+
+# Remote repo with local checkout override (for CI)
+repo-health-analyzer myorg/myrepo --local-path ./myrepo
 
 # With academic impact (S2 API key from env)
 export S2_API_KEY=your_key_here
