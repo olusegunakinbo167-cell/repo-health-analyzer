@@ -19,7 +19,7 @@ from .collector import RepoCollector
 from .config import RepoConfig, fetch_remote_config, load_config
 from .github_client import GitHubClient
 from .models import BaselineDiff, CategoryScore, HealthScore, RepoMetrics
-from .reporter import render_markdown, render_rich
+from .reporter import render_rich
 from .scorer import score_repo
 
 
@@ -521,10 +521,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Skip academic impact / paper reference scanning (faster, no S2 API calls)",
     )
+    # New unified output options
+    analyze.add_argument(
+        "-o",
+        "--output",
+        dest="output",
+        metavar="PATH",
+        type=Path,
+        default=None,
+        help="Write health report to PATH (format auto-detected from extension, "
+        "override with --format)",
+    )
+    analyze.add_argument(
+        "--format",
+        dest="output_format",
+        choices=("json", "markdown", "auto"),
+        default="auto",
+        help="Output format for --output (default: auto-detect from file extension)",
+    )
+    # Backwards-compat output flags
     analyze.add_argument(
         "--json",
         action="store_true",
-        help="Output results as JSON",
+        help="Output results as JSON to stdout (deprecated: use -o report.json)",
     )
     analyze.add_argument(
         "--markdown",
@@ -532,7 +551,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=None,
         help="Write a GitHub-flavored Markdown report to PATH "
-        "(suitable for $GITHUB_STEP_SUMMARY or PR comments)",
+        "(deprecated: use -o report.md)",
     )
     analyze.add_argument(
         "--min-score",
@@ -546,8 +565,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         metavar="PATH",
         type=Path,
         default=None,
-        help="Save complete run metadata (metrics, health_score, timestamp, repo SHA) "
-        "to a JSON file",
+        help="Save complete run metadata to a JSON file "
+        "(deprecated: use -o artifact.json --format json)",
     )
     analyze.add_argument(
         "--config",
@@ -732,7 +751,50 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"Warning: could not load baseline: {exc}", file=sys.stderr)
 
-    # --save-artifact: write run telemetry JSON
+    # Collect plugin statuses for export
+    plugin_statuses: list = []
+    try:
+        from .exporters.plugin_status import check_all_plugins
+
+        plugin_statuses = check_all_plugins()
+    except Exception:
+        # Plugin status collection is best-effort — don't fail the analysis
+        plugin_statuses = []
+
+    # ── Export handling ──
+    # New unified --output / -o flag
+    output_path = getattr(args, "output", None)
+    output_format = getattr(args, "output_format", "auto")
+
+    wrote_output_file = False
+
+    if output_path:
+        try:
+            from .exporters import export_report
+            from .exporters.base import ReportMetadata
+
+            metadata = ReportMetadata(
+                repository=metrics.full_name,
+                commit_sha=metrics.commit_sha,
+                timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            )
+            export_report(
+                metrics,
+                health,
+                output_path,
+                format=output_format,
+                baseline_diff=baseline_diff,
+                plugin_statuses=plugin_statuses,
+                metadata=metadata,
+            )
+            wrote_output_file = True
+        except Exception as exc:
+            print(f"Error writing output: {exc}", file=sys.stderr)
+            return 1
+
+    # ── Backwards-compat output flags ──
+
+    # --save-artifact: write run telemetry JSON (deprecated: use -o artifact.json)
     if args.save_artifact:
         artifact = {
             "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -749,14 +811,30 @@ def cmd_analyze(args: argparse.Namespace) -> int:
             args.save_artifact.write_text(
                 json.dumps(artifact, indent=2), encoding="utf-8"
             )
+            wrote_output_file = True
         except Exception as exc:
             print(f"Error writing artifact: {exc}", file=sys.stderr)
             return 1
 
-    # --markdown output
+    # --markdown output (deprecated: use -o report.md)
     if args.markdown:
-        md = render_markdown(metrics, health, baseline_diff=baseline_diff)
         try:
+            from .exporters import MarkdownExporter
+            from .exporters.base import ReportMetadata
+
+            metadata = ReportMetadata(
+                repository=metrics.full_name,
+                commit_sha=metrics.commit_sha,
+                timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            )
+            exporter = MarkdownExporter()
+            md = exporter.export(
+                metrics,
+                health,
+                baseline_diff=baseline_diff,
+                plugin_statuses=plugin_statuses,
+                metadata=metadata,
+            )
             # If the path matches $GITHUB_STEP_SUMMARY, append
             if str(args.markdown) == os.getenv("GITHUB_STEP_SUMMARY", ""):
                 with args.markdown.open("a", encoding="utf-8") as f:
@@ -764,16 +842,38 @@ def cmd_analyze(args: argparse.Namespace) -> int:
             else:
                 args.markdown.parent.mkdir(parents=True, exist_ok=True)
                 args.markdown.write_text(md, encoding="utf-8")
+            wrote_output_file = True
         except Exception as exc:
             print(f"Error writing markdown report: {exc}", file=sys.stderr)
             return 1
         # Confirmation to stderr if markdown was sole output
-        if not args.json and not args.save_artifact:
+        if not args.json and not args.save_artifact and not output_path:
             print(f"Wrote Markdown report to {args.markdown}", file=sys.stderr)
 
-    # --json output
+    # --json output to stdout (deprecated: use -o report.json)
     if args.json:
-        print(json.dumps(result, indent=2))
+        # Use the new JSON exporter for consistency (includes plugin statuses)
+        try:
+            from .exporters import JSONExporter
+            from .exporters.base import ReportMetadata
+
+            metadata = ReportMetadata(
+                repository=metrics.full_name,
+                commit_sha=metrics.commit_sha,
+                timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            )
+            exporter = JSONExporter()
+            json_output = exporter.export(
+                metrics,
+                health,
+                baseline_diff=baseline_diff,
+                plugin_statuses=plugin_statuses,
+                metadata=metadata,
+            )
+            print(json_output)
+        except Exception:
+            # Fall back to legacy result dict if exporter fails
+            print(json.dumps(result, indent=2))
         # Continue to quality gate check — don't return early
 
     # Quality gate check
@@ -789,8 +889,15 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         gate_msg = None
 
     # Terminal output
-    show_terminal = not args.json or gate_failed or args.markdown or args.save_artifact
-    if show_terminal and not args.json:
+    # Show terminal output if: no --json stdout, or gate failed, or any file output was requested
+    # (file outputs suppress terminal by default to avoid noise in CI)
+    has_file_output = bool(output_path or args.markdown or args.save_artifact)
+    show_terminal = (not args.json) or gate_failed
+    # Suppress terminal if a file output was requested and gate passed
+    if has_file_output and not gate_failed:
+        show_terminal = False
+
+    if show_terminal:
         output = render_rich(metrics, health, baseline_diff=baseline_diff)
         console = Console(no_color=args.no_color)
         console.print(output, end="")
