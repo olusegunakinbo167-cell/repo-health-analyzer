@@ -478,6 +478,260 @@ def cmd_embark_traits(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── Weather Service / environment context subcommand ──
+
+def _add_weather_subparsers(subparsers: argparse._SubParsersAction) -> None:
+    weather = subparsers.add_parser(
+        "weather",
+        help="National Weather Service forecasts and alerts (via weather-service)",
+        description="National Weather Service forecasts, observations, and alerts "
+        "(via weather-service). "
+        "Fun dev-downtime subcommand — not part of repo health scoring, "
+        "but environment context is collected during `analyze` runs.",
+    )
+    w_sub = weather.add_subparsers(dest="weather_cmd", required=True)
+
+    # forecast
+    p = w_sub.add_parser("forecast", help="Get weather forecast for a location")
+    p.add_argument(
+        "--location",
+        default="37.7749,-122.4194",
+        help="Latitude,longitude pair (default: 37.7749,-122.4194 — San Francisco, CA)",
+    )
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_weather_forecast)
+
+    # hourly
+    p = w_sub.add_parser("hourly", help="Get hourly forecast for a location")
+    p.add_argument(
+        "--location",
+        default="37.7749,-122.4194",
+        help="Latitude,longitude pair (default: 37.7749,-122.4194)",
+    )
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_weather_hourly)
+
+    # alerts
+    p = w_sub.add_parser("alerts", help="Get active weather alerts")
+    grp = p.add_mutually_exclusive_group(required=False)
+    grp.add_argument("--area", help="State/area code (e.g. CA)")
+    grp.add_argument(
+        "--location",
+        help="Latitude,longitude pair",
+    )
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_weather_alerts)
+
+    # observation
+    p = w_sub.add_parser("observation", help="Get latest observation from a station")
+    p.add_argument("--station-id", required=True, help="Station identifier (e.g. KSFO)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_weather_observation)
+
+    # stations
+    p = w_sub.add_parser("stations", help="Find nearby weather stations")
+    p.add_argument(
+        "--location",
+        default="37.7749,-122.4194",
+        help="Latitude,longitude pair (default: 37.7749,-122.4194)",
+    )
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_weather_stations)
+
+    # context
+    p = w_sub.add_parser(
+        "context", help="Collect full environment weather context (forecast + alerts + observation)"
+    )
+    p.add_argument(
+        "--location",
+        default="37.7749,-122.4194",
+        help="Latitude,longitude pair (default: 37.7749,-122.4194)",
+    )
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_weather_context)
+
+
+def cmd_weather_forecast(args: argparse.Namespace) -> int:
+    from .metrics.weather_service import get_forecast
+
+    try:
+        result = get_forecast(args.location)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    periods = result.get("properties", {}).get("periods", [])
+    console.print(f"[bold]Forecast — {args.location}[/bold]  {len(periods)} period(s)\n")
+    for p in periods[:8]:
+        name = p.get("name", "?")
+        temp = p.get("temperature", "?")
+        unit = p.get("temperatureUnit", "")
+        short = p.get("shortForecast", "")
+        console.print(f"[bold]{name}:[/bold] {temp}°{unit} — {short}")
+    return 0
+
+
+def cmd_weather_hourly(args: argparse.Namespace) -> int:
+    from .metrics.weather_service import get_hourly_forecast
+
+    try:
+        result = get_hourly_forecast(args.location)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    periods = result.get("properties", {}).get("periods", [])
+    console.print(f"[bold]Hourly forecast — {args.location}[/bold]\n")
+    for p in periods[:12]:
+        start = p.get("startTime", "?")
+        temp = p.get("temperature", "?")
+        unit = p.get("temperatureUnit", "")
+        short = p.get("shortForecast", "")
+        console.print(f"{start}  {temp}°{unit}  {short}")
+    return 0
+
+
+def cmd_weather_alerts(args: argparse.Namespace) -> int:
+    from .metrics.weather_service import get_alerts
+
+    # Default to CA if neither area nor location provided
+    area = args.area or None
+    location = args.location or None
+    if not area and not location:
+        area = "CA"
+
+    try:
+        result = get_alerts(area=area, location=location)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    features = result.get("features", [])
+    where = args.area or args.location or "CA"
+    console.print(f"[bold]Active alerts — {where}[/bold]  {len(features)} alert(s)\n")
+    if not features:
+        console.print("No active alerts.", style="dim")
+        return 0
+    for f in features:
+        props = f.get("properties", {})
+        event = props.get("event", "?")
+        severity = props.get("severity", "?")
+        headline = props.get("headline", "")
+        console.print(f"[bold]{event}[/bold] [{severity}]")
+        if headline:
+            console.print(f"  {headline}")
+        console.print()
+    return 0
+
+
+def cmd_weather_observation(args: argparse.Namespace) -> int:
+    from .metrics.weather_service import get_observation
+
+    try:
+        result = get_observation(args.station_id)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    props = result.get("properties", {})
+    console.print(f"[bold]Observation — {args.station_id}[/bold]\n")
+    ts = props.get("timestamp", "?")
+    desc = props.get("textDescription", "?")
+    console.print(f"Time: {ts}")
+    console.print(f"Conditions: {desc}")
+    temp = props.get("temperature", {})
+    if temp:
+        console.print(f"Temperature: {temp.get('value')} {temp.get('unitCode', '')}")
+    wind = props.get("windSpeed", {})
+    if wind:
+        console.print(f"Wind: {wind.get('value')} {wind.get('unitCode', '')}")
+    rh = props.get("relativeHumidity", {})
+    if rh:
+        console.print(f"Humidity: {rh.get('value')} {rh.get('unitCode', '')}")
+    return 0
+
+
+def cmd_weather_stations(args: argparse.Namespace) -> int:
+    from .metrics.weather_service import find_stations
+
+    try:
+        result = find_stations(args.location)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    features = result.get("features", [])
+    console.print(f"[bold]Weather stations near {args.location}[/bold]  {len(features)} found\n")
+    tbl = Table(show_header=True)
+    tbl.add_column("ID", style="cyan")
+    tbl.add_column("Name")
+    tbl.add_column("Distance", justify="right")
+    for f in features[:20]:
+        props = f.get("properties", {})
+        sid = props.get("stationIdentifier", "?")
+        name = props.get("name", "?")
+        dist = props.get("distance", {})
+        dist_str = ""
+        if isinstance(dist, dict):
+            dist_str = f"{dist.get('value', '?')} {dist.get('unitCode', '').split(':')[-1]}"
+        elif dist:
+            dist_str = str(dist)
+        tbl.add_row(sid, name, dist_str)
+    console.print(tbl)
+    return 0
+
+
+def cmd_weather_context(args: argparse.Namespace) -> int:
+    from .metrics.weather_service import get_environment_context
+
+    try:
+        result = get_environment_context(args.location)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]Environment context — {result['location']}[/bold]\n")
+    fc = result.get("forecast")
+    if fc:
+        console.print(
+            f"[bold]Forecast:[/bold] {fc.get('shortForecast')} — "
+            f"{fc.get('temperature')}°{fc.get('temperatureUnit', '')}"
+        )
+        console.print(f"  {fc.get('detailedForecast')}\n")
+    alerts = result.get("alerts", {})
+    console.print(f"[bold]Alerts:[/bold] {alerts.get('count', 0)} active")
+    for a in alerts.get("alerts", []):
+        console.print(f"  • {a.get('event')} [{a.get('severity')}]")
+    console.print()
+    obs = result.get("observation")
+    if obs:
+        console.print(
+            f"[bold]Observation ({obs.get('station_id')}):[/bold] {obs.get('textDescription', '?')}"
+        )
+    errors = result.get("errors", [])
+    if errors:
+        console.print(f"\n[dim]Errors: {', '.join(errors)}[/dim]")
+    return 0
+
+
 # ── Repo health analysis ──
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -492,6 +746,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     # embark subcommand
     _add_embark_subparsers(subparsers)
+
+    # weather subcommand
+    _add_weather_subparsers(subparsers)
 
     # analyze (default) — repository health check
     analyze = subparsers.add_parser(
@@ -585,6 +842,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "category score deltas are shown in terminal and Markdown output",
     )
     analyze.add_argument(
+        "--weather-location",
+        metavar="LAT,LONG",
+        default="37.7749,-122.4194",
+        help="Latitude,longitude for local environment weather context "
+        "(default: 37.7749,-122.4194 — San Francisco, CA). "
+        "Set to empty string to skip weather collection.",
+    )
+    analyze.add_argument(
         "--no-color",
         action="store_true",
         help="Disable Rich color output in terminal",
@@ -598,7 +863,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # matching pre-subparser behavior.
     if argv is None:
         argv = sys.argv[1:]
-    if argv and not argv[0].startswith("-") and argv[0] not in ("movies", "embark", "analyze"):
+    if argv and not argv[0].startswith("-") and argv[0] not in ("movies", "embark", "weather", "analyze"):
         # Rewrite: repo-health-analyzer owner/repo ... → repo-health-analyzer analyze owner/repo ...
         argv = ["analyze", *argv]
 
@@ -761,6 +1026,18 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         # Plugin status collection is best-effort — don't fail the analysis
         plugin_statuses = []
 
+    # Collect environment context (weather) for export
+    environment_context: dict[str, Any] | None = None
+    weather_location = getattr(args, "weather_location", "37.7749,-122.4194")
+    if weather_location:
+        try:
+            from .metrics.weather_service import get_environment_context
+
+            environment_context = get_environment_context(weather_location)
+        except Exception:
+            # Weather collection is best-effort — don't fail the analysis
+            environment_context = None
+
     # ── Export handling ──
     # New unified --output / -o flag
     output_path = getattr(args, "output", None)
@@ -786,6 +1063,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 baseline_diff=baseline_diff,
                 plugin_statuses=plugin_statuses,
                 metadata=metadata,
+                environment_context=environment_context,
             )
             wrote_output_file = True
         except Exception as exc:
@@ -806,6 +1084,8 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         }
         if baseline_diff:
             artifact["baseline"] = result.get("baseline")
+        if environment_context:
+            artifact["environment_context"] = environment_context
         try:
             args.save_artifact.parent.mkdir(parents=True, exist_ok=True)
             args.save_artifact.write_text(
@@ -834,6 +1114,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 baseline_diff=baseline_diff,
                 plugin_statuses=plugin_statuses,
                 metadata=metadata,
+                environment_context=environment_context,
             )
             # If the path matches $GITHUB_STEP_SUMMARY, append
             if str(args.markdown) == os.getenv("GITHUB_STEP_SUMMARY", ""):
@@ -869,6 +1150,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 baseline_diff=baseline_diff,
                 plugin_statuses=plugin_statuses,
                 metadata=metadata,
+                environment_context=environment_context,
             )
             print(json_output)
         except Exception:

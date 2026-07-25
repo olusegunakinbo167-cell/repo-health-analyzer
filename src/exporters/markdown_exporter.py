@@ -3,6 +3,10 @@
 
 from __future__ import annotations
 
+from __future__ import annotations
+
+from typing import Any
+
 from ..models import BaselineDiff, HealthScore, RepoMetrics
 from .base import Exporter, PluginStatus, ReportMetadata
 
@@ -21,6 +25,7 @@ class MarkdownExporter:
         baseline_diff: BaselineDiff | None = None,
         plugin_statuses: list[PluginStatus] | None = None,
         metadata: ReportMetadata | None = None,
+        environment_context: dict[str, Any] | None = None,
     ) -> str:
         """Export a health report as Markdown.
 
@@ -35,6 +40,7 @@ class MarkdownExporter:
             baseline_diff=baseline_diff,
             plugin_statuses=plugin_statuses,
             metadata=metadata,
+            environment_context=environment_context,
         )
 
 
@@ -44,6 +50,7 @@ def _render_markdown(
     baseline_diff: BaselineDiff | None = None,
     plugin_statuses: list[PluginStatus] | None = None,
     metadata: ReportMetadata | None = None,
+    environment_context: dict[str, Any] | None = None,
 ) -> str:
     """Render a GitHub-flavored Markdown report.
 
@@ -220,6 +227,44 @@ def _render_markdown(
                 cli_path = f"_{err}_"
             lines.append(f"| {ps.name} | {icon} | {cli_path} |")
         lines.append("")
+
+    # Environment context section
+    if environment_context:
+        lines.append("### Environment Context")
+        lines.append("")
+        loc = environment_context.get("location", "?")
+        lines.append(f"**Location:** `{loc}`")
+        lines.append("")
+        fc = environment_context.get("forecast")
+        if fc:
+            temp = fc.get("temperature", "?")
+            unit = fc.get("temperatureUnit", "")
+            short = fc.get("shortForecast", "?")
+            lines.append(f"**Forecast:** {short} — {temp}°{unit}")
+            wind = fc.get("windSpeed")
+            if wind:
+                wind_dir = fc.get("windDirection", "")
+                lines.append(f"  <br>Wind: {wind} {wind_dir}")
+            lines.append("")
+        alerts = environment_context.get("alerts", {})
+        alert_count = alerts.get("count", 0) if isinstance(alerts, dict) else 0
+        lines.append(f"**Active weather alerts:** {alert_count}")
+        if alert_count > 0 and isinstance(alerts, dict):
+            for a in alerts.get("alerts", [])[:3]:
+                evt = a.get("event", "?")
+                sev = a.get("severity", "?")
+                lines.append(f"- {evt} [{sev}]")
+        lines.append("")
+        obs = environment_context.get("observation")
+        if obs:
+            sid = obs.get("station_id", "?")
+            desc = obs.get("textDescription", "?")
+            lines.append(f"**Observation ({sid}):** {desc}")
+            lines.append("")
+        errors = environment_context.get("errors", [])
+        if errors:
+            lines.append(f"_Weather data errors: {', '.join(errors)}_")
+            lines.append("")
 
     # Raw metrics — collapsible
     lines.append("<details>")

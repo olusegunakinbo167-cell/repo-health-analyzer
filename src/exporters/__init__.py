@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from ..models import BaselineDiff, HealthScore, RepoMetrics
 from .base import Exporter, PluginStatus, ReportMetadata
@@ -103,6 +103,7 @@ def export_report(
     baseline_diff: BaselineDiff | None = None,
     plugin_statuses: list[PluginStatus] | None = None,
     metadata: ReportMetadata | None = None,
+    environment_context: dict[str, Any] | None = None,
 ) -> Path:
     """Export a health report to disk.
 
@@ -122,6 +123,8 @@ def export_report(
         Optional plugin availability statuses.
     metadata:
         Optional report metadata. If omitted, a default is constructed.
+    environment_context:
+        Optional local environment / weather context.
 
     Returns
     -------
@@ -147,6 +150,7 @@ def export_report(
         baseline_diff=baseline_diff,
         plugin_statuses=plugin_statuses,
         metadata=metadata,
+        environment_context=environment_context,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

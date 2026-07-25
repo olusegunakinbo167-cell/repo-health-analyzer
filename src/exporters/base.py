@@ -44,6 +44,7 @@ class Exporter(Protocol):
         baseline_diff: BaselineDiff | None = None,
         plugin_statuses: list[PluginStatus] | None = None,
         metadata: ReportMetadata | None = None,
+        environment_context: dict[str, Any] | None = None,
     ) -> str:
         """Export a health report.
 
