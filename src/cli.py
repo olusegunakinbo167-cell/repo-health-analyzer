@@ -943,7 +943,43 @@ def cmd_hn_user(args: argparse.Namespace) -> int:
 
 # ── Repo health analysis ──
 
+def _extract_cli_config_path(argv: list[str] | None) -> str | None:
+    """Pre-scan argv for --cli-config <path> so we can load defaults early.
+
+    Returns the config path if --cli-config was passed, else None.
+    This allows `.repo-health.json` defaults to be applied as argparse
+    defaults, so explicit CLI flags correctly override them.
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+    # Simple scan — look for --cli-config <path>
+    for i, arg in enumerate(argv):
+        if arg == "--cli-config" and i + 1 < len(argv):
+            return argv[i + 1]
+        if arg.startswith("--cli-config="):
+            return arg.split("=", 1)[1]
+    return None
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    # Pre-scan for --cli-config so we can load .repo-health.json defaults
+    # before building the full parser. This ensures CLI flags override
+    # config file values (argparse defaults < CLI args).
+    cli_config_path = _extract_cli_config_path(argv)
+    try:
+        from .cli_config import load_cli_config
+
+        cli_defaults = load_cli_config(cli_config_path)
+        cli_defaults_dict = cli_defaults.to_argparse_defaults()
+    except Exception as exc:
+        # Config load errors are fatal — bad config should fail fast
+        # unless the user explicitly passed --cli-config (then it's intentional)
+        if cli_config_path is not None:
+            print(f"Error loading CLI config: {exc}", file=sys.stderr)
+            sys.exit(2)
+        # Auto-discovered config failed — ignore and use argparse defaults
+        cli_defaults_dict = {}
+
     parser = argparse.ArgumentParser(
         prog="repo-health-analyzer",
         description="Analyze GitHub repository health metrics.",
@@ -968,6 +1004,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Analyze a GitHub repository (default command)",
         description="Analyze GitHub repository health metrics.",
     )
+
+    # --cli-config: path to local CLI defaults JSON file
+    # This is parsed early (see _extract_cli_config_path above) so that
+    # values from .repo-health.json can be used as argparse defaults.
+    # Explicit CLI flags always override config file values.
+    analyze.add_argument(
+        "--cli-config",
+        metavar="PATH",
+        type=Path,
+        default=None,
+        help="Path to CLI defaults config file (default: auto-discover "
+        ".repo-health.json in cwd). "
+        "Config file values are used as defaults; explicit CLI flags override them.",
+    )
     analyze.add_argument(
         "repository",
         help="Target repository in owner/repo format (e.g. 'octocat/Hello-World')",
@@ -985,10 +1035,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Semantic Scholar API key for academic impact metrics "
         "(default: S2_API_KEY / SEMANTIC_SCHOLAR_API_KEY env var)",
     )
-    analyze.add_argument(
+    academic_grp = analyze.add_mutually_exclusive_group()
+    academic_grp.add_argument(
         "--skip-academic",
         action="store_true",
+        dest="skip_academic",
         help="Skip academic impact / paper reference scanning (faster, no S2 API calls)",
+    )
+    academic_grp.add_argument(
+        "--no-skip-academic",
+        action="store_false",
+        dest="skip_academic",
+        help=argparse.SUPPRESS,  # override for --skip-academic when set in .repo-health.json
     )
     # New unified output options
     analyze.add_argument(
@@ -1009,10 +1067,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Output format for --output (default: auto-detect from file extension)",
     )
     # Backwards-compat output flags
-    analyze.add_argument(
+    json_grp = analyze.add_mutually_exclusive_group()
+    json_grp.add_argument(
         "--json",
         action="store_true",
+        dest="json",
         help="Output results as JSON to stdout (deprecated: use -o report.json)",
+    )
+    json_grp.add_argument(
+        "--no-json",
+        action="store_false",
+        dest="json",
+        help=argparse.SUPPRESS,
     )
     analyze.add_argument(
         "--markdown",
@@ -1061,16 +1127,32 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "(default: 37.7749,-122.4194 — San Francisco, CA). "
         "Set to empty string to skip weather collection.",
     )
-    analyze.add_argument(
+    weather_grp = analyze.add_mutually_exclusive_group()
+    weather_grp.add_argument(
         "--no-weather",
         action="store_true",
+        dest="no_weather",
         help="Skip weather / environment context collection during analysis",
     )
-    analyze.add_argument(
+    weather_grp.add_argument(
+        "--weather",
+        action="store_false",
+        dest="no_weather",
+        help=argparse.SUPPRESS,  # override for --no-weather when set in .repo-health.json
+    )
+    hn_grp = analyze.add_mutually_exclusive_group()
+    hn_grp.add_argument(
         "--hn-digest",
         action="store_true",
+        dest="hn_digest",
         help="Collect Hacker News discussion context during analysis — "
         "fetches current top stories via HN API and attaches to run_summary.json",
+    )
+    hn_grp.add_argument(
+        "--no-hn-digest",
+        action="store_false",
+        dest="hn_digest",
+        help=argparse.SUPPRESS,  # override for --hn-digest when set in .repo-health.json
     )
     analyze.add_argument(
         "--hn-limit",
@@ -1079,12 +1161,26 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         metavar="N",
         help="Number of HN top stories to include with --hn-digest (default: 10)",
     )
-    analyze.add_argument(
+    color_grp = analyze.add_mutually_exclusive_group()
+    color_grp.add_argument(
         "--no-color",
         action="store_true",
+        dest="no_color",
         help="Disable Rich color output in terminal",
     )
+    color_grp.add_argument(
+        "--color",
+        action="store_false",
+        dest="no_color",
+        help=argparse.SUPPRESS,  # override for --no-color when set in .repo-health.json
+    )
     analyze.set_defaults(func=cmd_analyze)
+
+    # Apply CLI config file defaults (if .repo-health.json was found).
+    # Explicit CLI flags override these because argparse processes CLI args
+    # after set_defaults().
+    if cli_defaults_dict:
+        analyze.set_defaults(**cli_defaults_dict)
 
     # Backwards compat: if first arg isn't a known subcommand, treat as
     # `analyze <repo> ...` — this preserves the old
