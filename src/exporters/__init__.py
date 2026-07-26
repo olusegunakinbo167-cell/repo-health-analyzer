@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from ..models import BaselineDiff, HealthScore, RepoMetrics
 from .base import Exporter, PluginStatus, ReportMetadata
+from .html_exporter import HTMLExporter
 from .json_exporter import JSONExporter
 from .markdown_exporter import MarkdownExporter
 
@@ -17,6 +18,7 @@ __all__ = [
     "ReportMetadata",
     "JSONExporter",
     "MarkdownExporter",
+    "HTMLExporter",
     "ExporterRegistry",
     "export_report",
     "get_exporter_for_path",
@@ -29,6 +31,7 @@ __all__ = [
 ExporterRegistry: dict[str, Exporter] = {
     "json": JSONExporter(),
     "markdown": MarkdownExporter(),
+    "html": HTMLExporter(),
 }
 
 # File extension → format name
@@ -99,7 +102,7 @@ def export_report(
     health: HealthScore,
     output_path: Path | str,
     *,
-    format: Literal["json", "markdown", "auto"] | str = "auto",
+    format: Literal["json", "markdown", "html", "auto"] | str = "auto",
     baseline_diff: BaselineDiff | None = None,
     plugin_statuses: list[PluginStatus] | None = None,
     metadata: ReportMetadata | None = None,
