@@ -325,12 +325,12 @@ def test_check_plugin_status_unknown():
 
 
 def test_check_all_plugins():
-    # Should never raise, always returns 3 statuses
+    # Should never raise, always returns 4 statuses
     statuses = check_all_plugins()
-    assert len(statuses) == 3
+    assert len(statuses) == 4
     names = {s.name for s in statuses}
-    assert names == {"fandango", "embark", "weather_service"}
+    assert names == {"fandango", "embark", "weather_service", "hackernews"}
     # Each status has required fields
     for s in statuses:
         assert isinstance(s.available, bool)
-        assert s.name in ("fandango", "embark", "weather_service")
+        assert s.name in ("fandango", "embark", "weather_service", "hackernews")
