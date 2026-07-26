@@ -27,6 +27,7 @@ class JSONExporter:
         plugin_statuses: list[PluginStatus] | None = None,
         metadata: ReportMetadata | None = None,
         environment_context: dict[str, Any] | None = None,
+        hn_context: dict[str, Any] | None = None,
     ) -> str:
         """Export a health report as JSON.
 
@@ -80,5 +81,9 @@ class JSONExporter:
         # Environment context (optional)
         if environment_context:
             envelope["environment_context"] = environment_context
+
+        # Hacker News context (optional)
+        if hn_context:
+            envelope["hn_context"] = hn_context
 
         return json.dumps(envelope, indent=2)

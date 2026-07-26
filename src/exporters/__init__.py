@@ -104,6 +104,7 @@ def export_report(
     plugin_statuses: list[PluginStatus] | None = None,
     metadata: ReportMetadata | None = None,
     environment_context: dict[str, Any] | None = None,
+    hn_context: dict[str, Any] | None = None,
 ) -> Path:
     """Export a health report to disk.
 
@@ -125,6 +126,8 @@ def export_report(
         Optional report metadata. If omitted, a default is constructed.
     environment_context:
         Optional local environment / weather context.
+    hn_context:
+        Optional Hacker News discussion context.
 
     Returns
     -------
@@ -151,6 +154,7 @@ def export_report(
         plugin_statuses=plugin_statuses,
         metadata=metadata,
         environment_context=environment_context,
+        hn_context=hn_context,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

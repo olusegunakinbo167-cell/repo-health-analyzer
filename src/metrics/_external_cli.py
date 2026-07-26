@@ -64,6 +64,7 @@ class ExternalCLI:
         *,
         json_flag: str = "--json",
         node_required: bool = True,
+        python_required: bool = False,
     ):
         """Initialize an ExternalCLI runner.
 
@@ -84,6 +85,9 @@ class ExternalCLI:
         node_required:
             If True, invoke via ["node", <cli_path>, ...].
             If False, invoke <cli_path> directly.
+        python_required:
+            If True, invoke via ["python3", <cli_path>, ...].
+            Takes precedence over node_required if both are True.
         """
         self.name = name
         self.cli_filename = cli_filename
@@ -91,6 +95,7 @@ class ExternalCLI:
         self.candidates = candidates or []
         self.json_flag = json_flag
         self.node_required = node_required
+        self.python_required = python_required
         self._cached_cli_path: Path | None = None
 
     def find_cli(self) -> Path:
@@ -181,7 +186,10 @@ class ExternalCLI:
         cli_path = self.find_cli()
 
         cmd: list[str]
-        if self.node_required:
+        # python_required takes precedence over node_required
+        if self.python_required:
+            cmd = ["python3", str(cli_path), *args]
+        elif self.node_required:
             cmd = ["node", str(cli_path), *args]
         else:
             cmd = [str(cli_path), *args]
