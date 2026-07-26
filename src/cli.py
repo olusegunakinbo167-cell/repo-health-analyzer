@@ -850,6 +850,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "Set to empty string to skip weather collection.",
     )
     analyze.add_argument(
+        "--no-weather",
+        action="store_true",
+        help="Skip weather / environment context collection during analysis",
+    )
+    analyze.add_argument(
         "--no-color",
         action="store_true",
         help="Disable Rich color output in terminal",
@@ -1028,8 +1033,9 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
     # Collect environment context (weather) for export
     environment_context: dict[str, Any] | None = None
+    no_weather = getattr(args, "no_weather", False)
     weather_location = getattr(args, "weather_location", "37.7749,-122.4194")
-    if weather_location:
+    if not no_weather and weather_location:
         try:
             from .metrics.weather_service import get_environment_context
 

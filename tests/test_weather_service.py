@@ -215,3 +215,37 @@ def test_run_weather_service_invalid_json() -> None:
         with mock.patch("src.metrics.weather_service.subprocess.run", return_value=fake_proc):
             with pytest.raises(CLIInvalidJSONError):
                 weather_service._run_weather_service(["get-forecast", "--location", "0,0"])
+
+
+def test_cli_no_weather_flag_skips_environment_context(monkeypatch: mock.MagicMock) -> None:
+    """--no-weather flag skips weather collection in cmd_analyze, environment_context is None."""
+    from src import cli
+    from tests.test_exporters import _make_test_objects
+
+    fake_metrics, fake_health = _make_test_objects()
+
+    async def fake_run(*args, **kwargs):
+        return {
+            "repository": "owner/repo",
+            "metrics": {},
+            "health_score": {},
+            "config": {},
+            "rate_limit": {"remaining": 5000, "limit": 5000, "reset": 0},
+            "_metrics_obj": fake_metrics,
+            "_health_obj": fake_health,
+            "_config_obj": None,
+        }
+
+    # Mock cli.run so no network calls happen
+    with mock.patch("src.cli.run", side_effect=fake_run):
+        # Mock weather_service to ensure it's NOT called when --no-weather is set
+        with mock.patch("src.metrics.weather_service.get_environment_context") as mock_weather:
+            # Build args with --no-weather
+            args = cli.parse_args(["analyze", "owner/repo", "--no-weather", "--no-color"])
+            assert args.no_weather is True
+            # Run cmd_analyze – should skip weather collection
+            result = cli.cmd_analyze(args)
+            # cmd_analyze returns 0 on success
+            assert result == 0
+            # Weather service should NOT have been called
+            mock_weather.assert_not_called()
