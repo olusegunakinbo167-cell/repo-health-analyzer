@@ -1,0 +1,83 @@
+name: Repo Health
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install repo-health-analyzer
+        run: pip install -e .
+
+      - name: Run health analyzer (HTML report)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Analyze the current repository and generate HTML + JSON reports
+          # Quality gate failures do not fail the CI run — artifacts are
+          # uploaded regardless so the HTML report is always available.
+          set +e
+          repo-health-analyzer ${{ github.repository }} \
+            --token "${GITHUB_TOKEN}" \
+            --min-score 70 \
+            --html-output health-report.html \
+            --output health-summary.json \
+            --format json
+          ANALYZE_EXIT=$?
+          set -e
+
+          echo "analyze_exit_code=$ANALYZE_EXIT" >> $GITHUB_OUTPUT
+
+          # Always show a brief summary in the job log
+          if [ -f health-summary.json ]; then
+            python -c 'import json; d=json.load(open("health-summary.json")); hs=d.get("health_score", {}); print(f"Health Score: {hs.get(\"total_score\", \"?\")}/100 — Grade {hs.get(\"grade\", \"?\")}")'
+          fi
+
+          # Don't fail the workflow on quality gate — artifact upload still runs
+          exit 0
+        id: analyze
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-health-report
+          path: |
+            health-report.html
+            health-summary.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Append HTML report link to job summary
+        if: always()
+        run: |
+          echo "### 📊 Repository Health Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f health-report.html ]; then
+            echo "HTML report uploaded as artifact: **repo-health-report**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Download from the [Actions run artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ HTML report was not generated" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f health-summary.json ]; then
+            SCORE=$(python -c "import json; d=json.load(open('health-summary.json')); print(f\"{d.get('health_score', {}).get('total_score', '?')}/100 — Grade {d.get('health_score', {}).get('grade', '?')}\")")
+            echo "**Score:** $SCORE" >> $GITHUB_STEP_SUMMARY
+          fi
