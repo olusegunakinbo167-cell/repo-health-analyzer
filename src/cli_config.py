@@ -51,9 +51,10 @@ class CLIConfig:
 
     # Output options
     output: str | None = None
-    output_format: str | None = None  # "json" | "markdown" | "auto"
+    output_format: str | None = None  # "json" | "markdown" | "html" | "auto"
     json: bool | None = None
     markdown: str | None = None
+    html_output: str | None = None
     min_score: float | None = None
     save_artifact: str | None = None
 
@@ -102,6 +103,8 @@ class CLIConfig:
             defaults["json"] = self.json
         if self.markdown is not None:
             defaults["markdown"] = Path(self.markdown)
+        if self.html_output is not None:
+            defaults["html_output"] = Path(self.html_output)
         if self.min_score is not None:
             defaults["min_score"] = float(self.min_score)
         if self.save_artifact is not None:
@@ -240,9 +243,9 @@ def load_cli_config(path: str | Path | None = None) -> CLIConfig:
                     f"CLI config {config_path}: '{key}' must be an integer >= 1, got {value!r}"
                 ) from exc
         elif key == "output_format":
-            if value not in ("json", "markdown", "auto"):
+            if value not in ("json", "markdown", "html", "auto"):
                 raise ValueError(
-                    f"CLI config {config_path}: 'output_format' must be 'json', 'markdown', or 'auto', got {value!r}"
+                    f"CLI config {config_path}: 'output_format' must be 'json', 'markdown', 'html', or 'auto', got {value!r}"
                 )
             kwargs[key] = value
         elif key in (
@@ -250,6 +253,7 @@ def load_cli_config(path: str | Path | None = None) -> CLIConfig:
             "s2_api_key",
             "output",
             "markdown",
+            "html_output",
             "save_artifact",
             "config",
             "baseline",

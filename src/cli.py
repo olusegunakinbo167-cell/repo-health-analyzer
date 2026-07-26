@@ -1062,7 +1062,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     analyze.add_argument(
         "--format",
         dest="output_format",
-        choices=("json", "markdown", "auto"),
+        choices=("json", "markdown", "html", "auto"),
         default="auto",
         help="Output format for --output (default: auto-detect from file extension)",
     )
@@ -1087,6 +1087,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Write a GitHub-flavored Markdown report to PATH "
         "(deprecated: use -o report.md)",
+    )
+    analyze.add_argument(
+        "--html",
+        "--html-output",
+        dest="html_output",
+        metavar="PATH",
+        type=Path,
+        default=None,
+        help="Write a self-contained HTML report to PATH "
+        "(use -o report.html --format html for explicit format control)",
     )
     analyze.add_argument(
         "--min-score",
@@ -1472,8 +1482,40 @@ def cmd_analyze(args: argparse.Namespace) -> int:
             print(f"Error writing markdown report: {exc}", file=sys.stderr)
             return 1
         # Confirmation to stderr if markdown was sole output
-        if not args.json and not args.save_artifact and not output_path:
+        if not args.json and not args.save_artifact and not output_path and not getattr(args, "html_output", None):
             print(f"Wrote Markdown report to {args.markdown}", file=sys.stderr)
+
+    # --html / --html-output
+    html_output = getattr(args, "html_output", None)
+    if html_output:
+        try:
+            from .exporters import HTMLExporter
+            from .exporters.base import ReportMetadata
+
+            metadata = ReportMetadata(
+                repository=metrics.full_name,
+                commit_sha=metrics.commit_sha,
+                timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            )
+            exporter = HTMLExporter()
+            html_content = exporter.export(
+                metrics,
+                health,
+                baseline_diff=baseline_diff,
+                plugin_statuses=plugin_statuses,
+                metadata=metadata,
+                environment_context=environment_context,
+                hn_context=hn_context,
+            )
+            html_output.parent.mkdir(parents=True, exist_ok=True)
+            html_output.write_text(html_content, encoding="utf-8")
+            wrote_output_file = True
+        except Exception as exc:
+            print(f"Error writing HTML report: {exc}", file=sys.stderr)
+            return 1
+        # Confirmation to stderr if HTML was sole output
+        if not args.json and not args.save_artifact and not output_path and not args.markdown:
+            print(f"Wrote HTML report to {html_output}", file=sys.stderr)
 
     # --json output to stdout (deprecated: use -o report.json)
     if args.json:
@@ -1518,7 +1560,8 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     # Terminal output
     # Show terminal output if: no --json stdout, or gate failed, or any file output was requested
     # (file outputs suppress terminal by default to avoid noise in CI)
-    has_file_output = bool(output_path or args.markdown or args.save_artifact)
+    html_output = getattr(args, "html_output", None)
+    has_file_output = bool(output_path or args.markdown or html_output or args.save_artifact)
     show_terminal = (not args.json) or gate_failed
     # Suppress terminal if a file output was requested and gate passed
     if has_file_output and not gate_failed:
