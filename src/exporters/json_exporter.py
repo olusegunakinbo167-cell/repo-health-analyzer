@@ -26,6 +26,7 @@ class JSONExporter:
         baseline_diff: BaselineDiff | None = None,
         plugin_statuses: list[PluginStatus] | None = None,
         metadata: ReportMetadata | None = None,
+        environment_context: dict[str, Any] | None = None,
     ) -> str:
         """Export a health report as JSON.
 
@@ -75,5 +76,9 @@ class JSONExporter:
             envelope["plugins"] = [
                 dataclasses.asdict(ps) for ps in plugin_statuses
             ]
+
+        # Environment context (optional)
+        if environment_context:
+            envelope["environment_context"] = environment_context
 
         return json.dumps(envelope, indent=2)

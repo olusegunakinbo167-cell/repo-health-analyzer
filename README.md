@@ -22,6 +22,9 @@ repo-health-analyzer movies <command> [options]
 
 # Dog breed traits / genetic health info (dev downtime 🐕)
 repo-health-analyzer embark <command> [options]
+
+# National Weather Service forecasts / alerts (dev downtime 🌤️)
+repo-health-analyzer weather <command> [options]
 ```
 
 ### Analyze options
@@ -36,6 +39,7 @@ repo-health-analyzer embark <command> [options]
 | `--min-score N` | Quality gate threshold — exit with code 1 if health score is below N (default: 70.0) |
 | `--config PATH` | Path to local `.repo-health.yml` config file (default: auto-fetch from target repo root) |
 | `--baseline PATH` | Path to a prior artifact JSON to compare against — category score deltas are shown in terminal and Markdown output |
+| `--weather-location LAT,LONG` | Latitude,longitude for environment weather context (default: `37.7749,-122.4194` — San Francisco, CA). Set to empty string to skip. |
 | `--no-color` | Disable Rich color output in terminal |
 | `--json` | *(deprecated)* Output results as JSON to stdout — use `-o report.json` instead |
 | `--markdown PATH` | *(deprecated)* Write Markdown report to PATH — use `-o report.md` instead |
@@ -144,6 +148,48 @@ repo-health-analyzer embark traits --live
 ```
 
 All Embark commands support `--json` for scripting.
+
+### Weather subcommand (dev downtime 🌤️)
+
+`repo-health-analyzer weather` wraps the [OpenClaw Weather Service CLI](https://github.com/openclaw/openclaw) for National Weather Service forecasts, observations, and alerts — useful for logging local environment context alongside repo health runs.
+
+Requires Python 3 and the Weather Service CLI installed at `~/.openclaw/extensions/weather-service/weather-service` (also found at `/usr/lib/node_modules/openclaw/dist/extensions/weather-service/skills/weather-service/weather-service` in OpenClaw installs; override with `WEATHER_SERVICE_CLI=/path/to/weather-service`). All commands are read-only, no API key required.
+
+Environment context (forecast + alerts + observation) is **automatically collected during `repo-health-analyzer analyze` runs** and included in the exported report (`environment_context` field in JSON / Environment Context section in Markdown). Default location: San Francisco, CA (`37.7749,-122.4194`). Override with `--weather-location LAT,LONG`, or set to empty string to skip weather collection.
+
+```bash
+# Get forecast (default: San Francisco)
+repo-health-analyzer weather forecast
+repo-health-analyzer weather forecast --location "40.7128,-74.0060"
+
+# Hourly forecast
+repo-health-analyzer weather hourly --location "37.7749,-122.4194"
+
+# Active weather alerts
+repo-health-analyzer weather alerts --area CA
+repo-health-analyzer weather alerts --location "37.7749,-122.4194"
+
+# Find nearby observation stations
+repo-health-analyzer weather stations --location "37.7749,-122.4194"
+
+# Get station observation
+repo-health-analyzer weather observation --station-id KSFO
+
+# Full environment context (forecast + alerts + observation)
+repo-health-analyzer weather context --location "37.7749,-122.4194"
+```
+
+All weather commands support `--json` for scripting.
+
+Analyze with custom weather location:
+
+```bash
+repo-health-analyzer analyze owner/repo \
+  -o run_summary.json \
+  --weather-location "40.7128,-74.0060"
+```
+
+The exported `run_summary.json` includes both the GitHub health score and the weather payload under `environment_context`.
 
 Or via module:
 
