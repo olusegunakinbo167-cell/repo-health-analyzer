@@ -12,7 +12,7 @@ def check_plugin_status(name: str) -> PluginStatus:
     Parameters
     ----------
     name:
-        Plugin name: "fandango", "embark", or "weather_service".
+        Plugin name: "fandango", "embark", "weather_service", or "hackernews".
 
     Returns
     -------
@@ -27,6 +27,8 @@ def check_plugin_status(name: str) -> PluginStatus:
         return _check_embark()
     if name in ("weather", "weather_service", "weather-service"):
         return _check_weather_service()
+    if name in ("hn", "hackernews", "hacker_news", "hacker-news"):
+        return _check_hn()
     return PluginStatus(name=name, available=False, error=f"unknown plugin: {name}")
 
 
@@ -105,10 +107,36 @@ def _check_weather_service() -> PluginStatus:
         )
 
 
+def _check_hn() -> PluginStatus:
+    try:
+        from ..metrics.hn import _HN_CLI, find_hn_cli
+
+        cli_path = find_hn_cli()
+        return PluginStatus(
+            name="hackernews",
+            available=True,
+            version=None,
+            cli_path=str(cli_path),
+            error=None,
+        )
+    except Exception as exc:
+        try:
+            _HN_CLI._cached_cli_path = None
+        except Exception:
+            pass
+        return PluginStatus(
+            name="hackernews",
+            available=False,
+            version=None,
+            cli_path=None,
+            error=str(exc),
+        )
+
+
 def check_all_plugins() -> list[PluginStatus]:
     """Check all known plugins. Returns a list, never raises."""
     results: list[PluginStatus] = []
-    for name in ("fandango", "embark", "weather_service"):
+    for name in ("fandango", "embark", "weather_service", "hackernews"):
         try:
             results.append(check_plugin_status(name))
         except Exception as exc:  # pragma: no cover — defensive

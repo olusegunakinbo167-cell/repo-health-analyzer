@@ -26,6 +26,7 @@ class MarkdownExporter:
         plugin_statuses: list[PluginStatus] | None = None,
         metadata: ReportMetadata | None = None,
         environment_context: dict[str, Any] | None = None,
+        hn_context: dict[str, Any] | None = None,
     ) -> str:
         """Export a health report as Markdown.
 
@@ -41,6 +42,7 @@ class MarkdownExporter:
             plugin_statuses=plugin_statuses,
             metadata=metadata,
             environment_context=environment_context,
+            hn_context=hn_context,
         )
 
 
@@ -51,6 +53,7 @@ def _render_markdown(
     plugin_statuses: list[PluginStatus] | None = None,
     metadata: ReportMetadata | None = None,
     environment_context: dict[str, Any] | None = None,
+    hn_context: dict[str, Any] | None = None,
 ) -> str:
     """Render a GitHub-flavored Markdown report.
 
@@ -264,6 +267,37 @@ def _render_markdown(
         errors = environment_context.get("errors", [])
         if errors:
             lines.append(f"_Weather data errors: {', '.join(errors)}_")
+            lines.append("")
+
+    # Hacker News context section
+    if hn_context:
+        lines.append("### Hacker News Context")
+        lines.append("")
+        stories = hn_context.get("stories", [])
+        story_ids = hn_context.get("top_story_ids", [])
+        fetched_at = hn_context.get("fetched_at", "")
+        lines.append(f"**Top {len(story_ids)} HN discussions**")
+        if fetched_at:
+            lines.append(f"  <br>_Fetched: {fetched_at[:19].replace('T', ' ')} UTC_")
+        lines.append("")
+        for i, s in enumerate(stories[:10], 1):
+            title = s.get("title", "?")
+            score = s.get("score", "?")
+            by = s.get("by", "?")
+            comments = s.get("descendants", 0)
+            url = s.get("url", "")
+            item_id = s.get("id", "")
+            hn_url = f"https://news.ycombinator.com/item?id={item_id}" if item_id else ""
+            lines.append(f"{i}. **{title}**")
+            lines.append(f"   <br>by {by} · {score} points · {comments} comments")
+            if url:
+                lines.append(f"   <br>[link]({url}) · [HN]({hn_url})")
+            elif hn_url:
+                lines.append(f"   <br>[HN]({hn_url})")
+            lines.append("")
+        errors = hn_context.get("errors", [])
+        if errors:
+            lines.append(f"_HN fetch errors: {', '.join(errors)}_")
             lines.append("")
 
     # Raw metrics — collapsible

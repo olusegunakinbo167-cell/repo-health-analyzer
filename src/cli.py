@@ -732,6 +732,215 @@ def cmd_weather_context(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── Hacker News / discussion context subcommand ──
+
+def _add_hn_subparsers(subparsers: argparse._SubParsersAction) -> None:
+    hn = subparsers.add_parser(
+        "hn",
+        help="Hacker News discussions and community context (via hackernews CLI)",
+        description="Hacker News discussions, Ask HN, Show HN, and job postings "
+        "(via hackernews CLI). "
+        "Fun dev-downtime subcommand — not part of repo health scoring, "
+        "but discussion context can be collected during `analyze` runs with --hn-digest.",
+    )
+    h_sub = hn.add_subparsers(dest="hn_cmd", required=True)
+
+    # top-stories
+    p = h_sub.add_parser("top", help="Get top Hacker News story IDs")
+    p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_hn_top)
+
+    # get-item
+    p = h_sub.add_parser("item", help="Get a Hacker News item by ID")
+    p.add_argument("--id", dest="item_id", type=int, required=True, help="Hacker News item ID")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_hn_item)
+
+    # digest
+    p = h_sub.add_parser(
+        "digest", help="Fetch HN discussion digest (top stories + full item details)"
+    )
+    p.add_argument("--limit", type=int, default=10, help="Number of top stories (default: 10)")
+    p.add_argument("--ids-only", action="store_true", help="Return IDs only, skip fetching items")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_hn_digest)
+
+    # new-stories
+    p = h_sub.add_parser("new", help="Get newest Hacker News story IDs")
+    p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_hn_new)
+
+    # best-stories
+    p = h_sub.add_parser("best", help="Get best Hacker News story IDs")
+    p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_hn_best)
+
+    # ask-stories
+    p = h_sub.add_parser("ask", help="Get Ask HN story IDs")
+    p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_hn_ask)
+
+    # show-stories
+    p = h_sub.add_parser("show", help="Get Show HN story IDs")
+    p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_hn_show)
+
+    # job-stories
+    p = h_sub.add_parser("jobs", help="Get Hacker News job posting IDs")
+    p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_hn_jobs)
+
+    # get-user
+    p = h_sub.add_parser("user", help="Get a Hacker News user profile")
+    p.add_argument("--id", dest="user_id", required=True, help="Hacker News username")
+    p.add_argument("--submitted-limit", type=int, help="Max submitted item IDs to return")
+    p.add_argument("--json", action="store_true", help="Output raw JSON")
+    p.set_defaults(func=cmd_hn_user)
+
+
+def cmd_hn_top(args: argparse.Namespace) -> int:
+    from .metrics.hn import top_stories
+
+    try:
+        result = top_stories(limit=args.limit)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]Top HN stories[/bold] — {len(result)} ID(s)\n")
+    for i, sid in enumerate(result, 1):
+        console.print(f"  {i}. {sid}")
+    return 0
+
+
+def cmd_hn_item(args: argparse.Namespace) -> int:
+    from .metrics.hn import get_item
+
+    try:
+        result = get_item(args.item_id)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]{result.get('title', args.item_id)}[/bold]")
+    if result.get("url"):
+        console.print(f"[dim]{result['url']}[/dim]\n")
+    console.print(f"by {result.get('by', '?')}  "
+                  f"score: {result.get('score', '?')}  "
+                  f"comments: {result.get('descendants', 0)}")
+    return 0
+
+
+def cmd_hn_digest(args: argparse.Namespace) -> int:
+    from .metrics.hn import get_hn_digest
+
+    try:
+        result = get_hn_digest(top_limit=args.limit, fetch_items=not args.ids_only)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    stories = result.get("stories", [])
+    ids = result.get("top_story_ids", [])
+    console.print(f"[bold]HN Digest[/bold] — {len(ids)} story ID(s), "
+                  f"{len(stories)} fetched\n")
+    for i, s in enumerate(stories, 1):
+        title = s.get("title", "?")
+        score = s.get("score", "?")
+        by = s.get("by", "?")
+        comments = s.get("descendants", 0)
+        url = s.get("url", "")
+        console.print(f"[bold]{i}. {title}[/bold]")
+        console.print(f"   by {by}  score: {score}  comments: {comments}")
+        if url:
+            console.print(f"   [dim]{url}[/dim]")
+        console.print()
+    errors = result.get("errors", [])
+    if errors:
+        console.print(f"[dim]Errors: {', '.join(errors)}[/dim]")
+    return 0
+
+
+def _cmd_hn_stories(args: argparse.Namespace, fn, label: str) -> int:
+    try:
+        result = fn(limit=args.limit)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]{label}[/bold] — {len(result)} ID(s)\n")
+    for i, sid in enumerate(result, 1):
+        console.print(f"  {i}. {sid}")
+    return 0
+
+
+def cmd_hn_new(args: argparse.Namespace) -> int:
+    from .metrics.hn import new_stories
+    return _cmd_hn_stories(args, new_stories, "New HN stories")
+
+
+def cmd_hn_best(args: argparse.Namespace) -> int:
+    from .metrics.hn import best_stories
+    return _cmd_hn_stories(args, best_stories, "Best HN stories")
+
+
+def cmd_hn_ask(args: argparse.Namespace) -> int:
+    from .metrics.hn import ask_stories
+    return _cmd_hn_stories(args, ask_stories, "Ask HN stories")
+
+
+def cmd_hn_show(args: argparse.Namespace) -> int:
+    from .metrics.hn import show_stories
+    return _cmd_hn_stories(args, show_stories, "Show HN stories")
+
+
+def cmd_hn_jobs(args: argparse.Namespace) -> int:
+    from .metrics.hn import job_stories
+    return _cmd_hn_stories(args, job_stories, "HN job postings")
+
+
+def cmd_hn_user(args: argparse.Namespace) -> int:
+    from .metrics.hn import get_user
+
+    try:
+        result = get_user(args.user_id, submitted_limit=args.submitted_limit)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]{result.get('id', args.user_id)}[/bold]")
+    console.print(f"Karma: {result.get('karma', '?')}  "
+                  f"Created: {result.get('created', '?')}")
+    about = result.get("about")
+    if about:
+        console.print(f"\n{about}")
+    submitted = result.get("submitted", [])
+    if submitted:
+        console.print(f"\n[dim]{len(submitted)} submitted item(s)[/dim]")
+    return 0
+
+
 # ── Repo health analysis ──
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -749,6 +958,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     # weather subcommand
     _add_weather_subparsers(subparsers)
+
+    # hn subcommand
+    _add_hn_subparsers(subparsers)
 
     # analyze (default) — repository health check
     analyze = subparsers.add_parser(
@@ -855,6 +1067,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Skip weather / environment context collection during analysis",
     )
     analyze.add_argument(
+        "--hn-digest",
+        action="store_true",
+        help="Collect Hacker News discussion context during analysis — "
+        "fetches current top stories via HN API and attaches to run_summary.json",
+    )
+    analyze.add_argument(
+        "--hn-limit",
+        type=int,
+        default=10,
+        metavar="N",
+        help="Number of HN top stories to include with --hn-digest (default: 10)",
+    )
+    analyze.add_argument(
         "--no-color",
         action="store_true",
         help="Disable Rich color output in terminal",
@@ -868,7 +1093,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # matching pre-subparser behavior.
     if argv is None:
         argv = sys.argv[1:]
-    if argv and not argv[0].startswith("-") and argv[0] not in ("movies", "embark", "weather", "analyze"):
+    if argv and not argv[0].startswith("-") and argv[0] not in ("movies", "embark", "weather", "hn", "analyze"):
         # Rewrite: repo-health-analyzer owner/repo ... → repo-health-analyzer analyze owner/repo ...
         argv = ["analyze", *argv]
 
@@ -1044,6 +1269,19 @@ def cmd_analyze(args: argparse.Namespace) -> int:
             # Weather collection is best-effort — don't fail the analysis
             environment_context = None
 
+    # Collect Hacker News discussion context for export
+    hn_context: dict[str, Any] | None = None
+    hn_digest_enabled = getattr(args, "hn_digest", False)
+    hn_limit = getattr(args, "hn_limit", 10)
+    if hn_digest_enabled:
+        try:
+            from .metrics.hn import get_hn_digest
+
+            hn_context = get_hn_digest(top_limit=hn_limit, fetch_items=True)
+        except Exception:
+            # HN collection is best-effort — don't fail the analysis
+            hn_context = None
+
     # ── Export handling ──
     # New unified --output / -o flag
     output_path = getattr(args, "output", None)
@@ -1070,6 +1308,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 plugin_statuses=plugin_statuses,
                 metadata=metadata,
                 environment_context=environment_context,
+                hn_context=hn_context,
             )
             wrote_output_file = True
         except Exception as exc:
@@ -1092,6 +1331,8 @@ def cmd_analyze(args: argparse.Namespace) -> int:
             artifact["baseline"] = result.get("baseline")
         if environment_context:
             artifact["environment_context"] = environment_context
+        if hn_context:
+            artifact["hn_context"] = hn_context
         try:
             args.save_artifact.parent.mkdir(parents=True, exist_ok=True)
             args.save_artifact.write_text(
@@ -1121,6 +1362,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 plugin_statuses=plugin_statuses,
                 metadata=metadata,
                 environment_context=environment_context,
+                hn_context=hn_context,
             )
             # If the path matches $GITHUB_STEP_SUMMARY, append
             if str(args.markdown) == os.getenv("GITHUB_STEP_SUMMARY", ""):
@@ -1157,6 +1399,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 plugin_statuses=plugin_statuses,
                 metadata=metadata,
                 environment_context=environment_context,
+                hn_context=hn_context,
             )
             print(json_output)
         except Exception:

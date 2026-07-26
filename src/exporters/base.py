@@ -45,6 +45,7 @@ class Exporter(Protocol):
         plugin_statuses: list[PluginStatus] | None = None,
         metadata: ReportMetadata | None = None,
         environment_context: dict[str, Any] | None = None,
+        hn_context: dict[str, Any] | None = None,
     ) -> str:
         """Export a health report.
 
