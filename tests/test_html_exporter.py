@@ -237,3 +237,122 @@ def test_html_exporter_dark_mode():
 
     assert "prefers-color-scheme: dark" in output
     assert "--bg:" in output  # CSS variables
+
+
+def test_html_exporter_baseline_with_missing_category():
+    """HTML exporter handles BaselineDiff with None baseline/delta (schema evolution).
+
+    When a category exists in current but not in baseline (e.g., new 'financial'
+    category, or weight rebalancing 25pt → 20pt), CategoryDelta.baseline and
+    CategoryDelta.delta are None.  The HTML exporter must render these gracefully
+    with N/A / 'new' badges instead of crashing with AttributeError/TypeError
+    during string formatting.
+    """
+    from unittest.mock import patch
+
+    from src.models import BaselineDiff
+
+    metrics, health = _make_test_objects()
+
+    # Build a baseline with different max_scores (25pt → simulates weight rebalancing)
+    baseline_health = HealthScore(
+        total_score=70.0,
+        documentation=CategoryScore("Documentation", 20.0, 25.0),
+        maintenance=CategoryScore("Maintenance", 18.0, 25.0),
+        ci_cd=CategoryScore("CI/CD", score=15.0, max_score=25.0),
+        governance=CategoryScore("Governance", score=17.0, max_score=25.0),
+    )
+
+    # Current health has rebalanced weights (25pt → 20pt) + an extra category
+    # Inject a fake "financial" category to trigger missing-baseline handling
+    orig_categories = HealthScore.categories
+
+    def patched_categories(self):
+        cats = orig_categories(self)
+        if self is health:
+            cats = dict(cats)
+            cats["financial"] = CategoryScore(
+                "Financial", score=15.0, max_score=20.0, recommendations=["Add a CORPORATE_BACKER.md"]
+            )
+        return cats
+
+    with patch.object(HealthScore, "categories", patched_categories):
+        diff = BaselineDiff.compare(health, baseline_health)
+
+        # Verify we have the expected None fields
+        assert "financial" in diff.categories
+        cd_fin = diff.categories["financial"]
+        assert cd_fin.baseline is None
+        assert cd_fin.delta is None
+        assert cd_fin.percentage_delta is None
+
+        # Documentation: 20/25 (80%) → 22/25 (88%)
+        cd_doc = diff.categories["documentation"]
+        assert cd_doc.baseline == 20.0
+        assert cd_doc.current == 22.0
+        assert cd_doc.delta == 2.0
+        assert cd_doc.percentage_delta is not None
+
+        # Export to HTML — this must NOT crash with TypeError/AttributeError
+        # Keep the patch active during export so health.categories() includes financial,
+        # allowing the category breakdown and baseline table to encounter the None values
+        exporter = HTMLExporter()
+        output = exporter.export(metrics, health, baseline_diff=diff)
+
+    # Verify HTML output handles None baseline/delta gracefully
+    # Missing category should show "new" badge or "N/A"
+    assert "new" in output.lower() or "n/a" in output.lower() or "—" in output
+
+    # Baseline comparison table must still render
+    assert "Baseline Comparison" in output
+
+    # Ensure no unformatted None leaked into HTML
+    assert "None" not in output
+    assert ">None<" not in output
+
+    # Valid HTML
+    assert "<!DOCTYPE html>" in output
+    assert "</html>" in output
+
+
+def test_html_exporter_baseline_percentage_delta():
+    """HTML exporter shows percentage-point delta when category weights change."""
+    from src.models import BaselineDiff
+
+    metrics, health = _make_test_objects()
+    # health fixture: documentation = 22.0 / 25.0 (88%)
+
+    # Baseline with different max_score (weight rebalancing scenario)
+    baseline_health = HealthScore(
+        total_score=60.0,
+        documentation=CategoryScore("Documentation", score=20.0, max_score=20.0),  # 100%
+        maintenance=CategoryScore("Maintenance", score=15.0, max_score=20.0),
+        ci_cd=CategoryScore("CI/CD", score=12.0, max_score=20.0),
+        governance=CategoryScore("Governance", score=13.0, max_score=20.0),
+    )
+
+    diff = BaselineDiff.compare(health, baseline_health)
+
+    cd_doc = diff.categories["documentation"]
+    # 20/20 (100%) → 22/25 (88%) = -12pp
+    # Raw delta: 22 - 20 = +2 pts (misleading!)
+    # Percentage delta: 88 - 100 = -12pp
+    assert cd_doc.baseline == 20.0
+    assert cd_doc.current == 22.0
+    assert cd_doc.delta == 2.0
+    assert cd_doc.percentage_delta == -12.0
+    assert cd_doc.baseline_max_score == 20.0
+    assert cd_doc.max_score == 25.0
+
+    # Export — must render percentage-point delta, not raw point delta
+    exporter = HTMLExporter()
+    output = exporter.export(metrics, health, baseline_diff=diff)
+
+    # Should show "pp" (percentage points) since max_score changed 20 → 25
+    assert "pp" in output
+    # -12pp should appear (the normalized delta)
+    assert "12" in output
+
+    # No crash, valid HTML
+    assert "<!DOCTYPE html>" in output
+    assert "Baseline Comparison" in output

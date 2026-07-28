@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from __future__ import annotations
-
 from typing import Any
 
 from ..models import BaselineDiff, HealthScore, RepoMetrics
@@ -123,9 +121,21 @@ def _render_markdown(
         pct = cat.percentage
         status = "✅" if pct >= 80 else "⚠️" if pct >= 60 else "❌"
         if has_baseline:
-            cd = baseline_diff.categories[key]  # type: ignore[index]
-            d_sign = "+" if cd.delta > 0 else ""
-            delta_col = f"{d_sign}{cd.delta:.1f} {cd.trend}"
+            cd = baseline_diff.categories.get(key)
+            if cd and cd.delta is not None:
+                d_sign = "+" if cd.delta > 0 else ""
+                # Show percentage delta if weights differ, otherwise raw delta
+                use_pct = (
+                    cd.baseline_max_score is not None
+                    and abs(cd.max_score - cd.baseline_max_score) > 0.01
+                )
+                if use_pct and cd.percentage_delta is not None:
+                    delta_val = f"{cd.percentage_delta:+.1f}pp"
+                else:
+                    delta_val = f"{d_sign}{cd.delta:.1f}"
+                delta_col = f"{delta_val} {cd.trend}"
+            else:
+                delta_col = "— new"
             lines.append(
                 f"| {cat.name} | {cat.score:.1f} / {cat.max_score:.0f} | "
                 f"{delta_col} | {status} |"
@@ -149,8 +159,23 @@ def _render_markdown(
         lines.append(f"| **Overall** | {bs:.1f} | {cs:.1f} | {d:+.1f} |")
         for key in cat_keys:
             cd = baseline_diff.categories[key]
+            if cd.baseline is None or cd.delta is None:
+                baseline_str = "—"
+                delta_str = "new"
+            else:
+                baseline_str = f"{cd.baseline:.1f}"
+                # Show percentage delta if max_score changed
+                use_pct = (
+                    cd.baseline_max_score is not None
+                    and abs(cd.max_score - cd.baseline_max_score) > 0.01
+                    and cd.percentage_delta is not None
+                )
+                if use_pct:
+                    delta_str = f"{cd.percentage_delta:+.1f}pp"
+                else:
+                    delta_str = f"{cd.delta:+.1f}"
             lines.append(
-                f"| {cd.name} | {cd.baseline:.1f} | {cd.current:.1f} | {cd.delta:+.1f} |"
+                f"| {cd.name} | {baseline_str} | {cd.current:.1f} | {delta_str} |"
             )
         if baseline_diff.baseline_commit:
             lines.append("")
@@ -176,8 +201,11 @@ def _render_markdown(
         )
         if has_baseline:
             cd = baseline_diff.categories[key]  # type: ignore[index]
-            d_sign = "+" if cd.delta > 0 else ""
-            summary_text += f" ({d_sign}{cd.delta:.1f})"
+            if cd.delta is not None:
+                d_sign = "+" if cd.delta > 0 else ""
+                summary_text += f" ({d_sign}{cd.delta:.1f})"
+            else:
+                summary_text += " (new)"
         summary_text += "</b></summary>"
         lines.append("<details>")
         lines.append(summary_text)
