@@ -5,6 +5,7 @@ from __future__ import annotations
 from .config import RepoConfig
 from .metrics.academic_impact import score_academic_impact_bonus
 from .metrics.bus_factor import calculate_bus_factor
+from .metrics.financial import score_financial
 from .models import CategoryScore, HealthScore, RepoMetrics
 
 
@@ -362,8 +363,19 @@ def score_repo(metrics: RepoMetrics, config: RepoConfig | None = None) -> Health
     maintenance = score_maintenance(metrics, config)
     ci_cd = score_ci_cd(metrics, config)
     governance = score_governance(metrics, config)
+    financial = score_financial(
+        repo_full_name=metrics.full_name,
+        financial_metrics=getattr(metrics, "financial", None),
+        config=config,
+    )
 
-    total = documentation.score + maintenance.score + ci_cd.score + governance.score
+    total = (
+        documentation.score
+        + maintenance.score
+        + ci_cd.score
+        + governance.score
+        + financial.score
+    )
 
     return HealthScore(
         total_score=round(total, 2),
@@ -371,4 +383,5 @@ def score_repo(metrics: RepoMetrics, config: RepoConfig | None = None) -> Health
         maintenance=maintenance,
         ci_cd=ci_cd,
         governance=governance,
+        financial=financial,
     )

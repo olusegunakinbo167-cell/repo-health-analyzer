@@ -1,0 +1,102 @@
+# Repository Health Analyzer — Metric weights and financial scorer config
+# All 5 categories weighted equally at 20 pts (total 100)
+
+weights:
+  documentation: 20.0
+  maintenance: 20.0
+  ci_cd: 20.0
+  governance: 20.0
+  financial: 20.0
+
+ignore: []
+
+# --- Financial Impact Scorer ---
+# Correlates corporate backer stock performance with repository vitality.
+financial:
+  # Corporate backer → ticker mapping.
+  # Used to associate a repo with its sponsoring organization's stock.
+  # Key can be a GitHub org/user, or "default" for fallback tickers.
+  backers:
+    default: [MSFT, GOOGL, AAPL]
+    # Example overrides:
+    # microsoft: [MSFT]
+    # google: [GOOGL]
+    # apple: [AAPL]
+    # meta: [META]
+    # amazon: [AMZN]
+    # nvidia: [NVDA]
+
+  # Scoring thresholds (applied to composite backer index)
+  # Raw score is 0–20 pts, scaled to category weight
+  thresholds:
+    # 90-day price change %
+    price_change:
+      excellent: 15.0   # ≥ +15% → full points
+      good: 5.0         # ≥ +5%
+      neutral: -5.0     # ≥ -5%
+      poor: -15.0       # ≥ -15%
+    # Annualized volatility % (lower is better for stability signal)
+    volatility:
+      low: 20.0         # ≤ 20% → no penalty
+      medium: 35.0      # ≤ 35%
+      high: 50.0        # ≤ 50%
+    # Minimum market cap (USD billions) for "established backer" bonus
+    market_cap_bonus: 100.0
+
+  # Offline cache — fallback quotes when Yahoo Finance is unreachable
+  # (e.g. 451 blocks, no network). Last updated: 2026-07-25
+  cache:
+    MSFT:
+      symbol: MSFT
+      short_name: Microsoft Corporation
+      price: 445.32
+      change_pct_90d: 8.4
+      volatility_annualized: 22.1
+      market_cap_billions: 3310.0
+      currency: USD
+    GOOGL:
+      symbol: GOOGL
+      short_name: Alphabet Inc.
+      price: 178.55
+      change_pct_90d: 4.2
+      volatility_annualized: 26.8
+      market_cap_billions: 2195.0
+      currency: USD
+    AAPL:
+      symbol: AAPL
+      short_name: Apple Inc.
+      price: 229.18
+      change_pct_90d: 2.1
+      volatility_annualized: 24.5
+      market_cap_billions: 3455.0
+      currency: USD
+    META:
+      symbol: META
+      short_name: Meta Platforms Inc.
+      price: 512.40
+      change_pct_90d: 12.7
+      volatility_annualized: 31.2
+      market_cap_billions: 1290.0
+      currency: USD
+    AMZN:
+      symbol: AMZN
+      short_name: Amazon.com Inc.
+      price: 201.88
+      change_pct_90d: 6.3
+      volatility_annualized: 28.4
+      market_cap_billions: 2120.0
+      currency: USD
+    NVDA:
+      symbol: NVDA
+      short_name: NVIDIA Corporation
+      price: 127.45
+      change_pct_90d: 18.9
+      volatility_annualized: 42.6
+      market_cap_billions: 3115.0
+      currency: USD
+
+  # Network behavior
+  network:
+    timeout_seconds: 5.0
+    retries: 1
+    offline_first: true   # always prefer cache, only hit network if live=true

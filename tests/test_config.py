@@ -31,7 +31,7 @@ def make_metrics(**overrides) -> RepoMetrics:
 
 def test_repo_config_defaults() -> None:
     cfg = RepoConfig()
-    assert cfg.weights["documentation"] == 25.0
+    assert cfg.weights["documentation"] == 20.0
     assert cfg.total_weight == 100.0
     assert cfg.is_ignored("missing_readme") is False
 
@@ -41,10 +41,11 @@ def test_load_config_weights_and_ignores(tmp_path) -> None:
     cfg_file.write_text(
         """
 weights:
-  documentation: 40
-  maintenance: 30
+  documentation: 30
+  maintenance: 25
   ci_cd: 20
-  governance: 10
+  governance: 15
+  financial: 10
 ignore:
   - missing_contributing
   - missing_code_of_conduct
@@ -53,8 +54,9 @@ ignore:
         encoding="utf-8",
     )
     cfg = load_config(cfg_file)
-    assert cfg.weights["documentation"] == 40.0
-    assert cfg.weights["governance"] == 10.0
+    assert cfg.weights["documentation"] == 30.0
+    assert cfg.weights["governance"] == 15.0
+    assert cfg.weights["financial"] == 10.0
     assert cfg.is_ignored("missing_contributing")
     assert cfg.is_ignored("missing_code_of_conduct")
     assert cfg.is_ignored("no_ci")
@@ -86,7 +88,7 @@ def test_scorer_respects_ignore_rules() -> None:
             readme=False, license=False, contributing=False, code_of_conduct=False
         )
     )
-    # Without config: 0/25
+    # Without config: 0/20
     score_plain = score_documentation(metrics, None)
     assert score_plain.score == 0.0
     assert len(score_plain.penalties) == 4
@@ -101,7 +103,7 @@ def test_scorer_respects_ignore_rules() -> None:
         }
     )
     score_ignored = score_documentation(metrics, cfg)
-    assert score_ignored.score == 25.0
+    assert score_ignored.score == 20.0
     assert score_ignored.penalties == []
 
 
@@ -123,19 +125,26 @@ def test_scorer_respects_custom_weights() -> None:
     )
     cfg = RepoConfig(
         weights={
-            "documentation": 40.0,
-            "maintenance": 30.0,
+            "documentation": 30.0,
+            "maintenance": 25.0,
             "ci_cd": 20.0,
-            "governance": 10.0,
+            "governance": 15.0,
+            "financial": 10.0,
         }
     )
     health = score_repo(metrics, cfg)
     # Perfect repo: each category should hit its configured max
-    assert health.documentation.score == pytest.approx(40.0)
-    assert health.maintenance.score == pytest.approx(30.0, abs=1.0)
+    assert health.documentation.score == pytest.approx(30.0)
+    assert health.maintenance.score == pytest.approx(25.0, abs=1.0)
     assert health.ci_cd.score == pytest.approx(20.0, abs=1.0)
-    assert health.governance.score == pytest.approx(10.0)
-    assert health.total_score == pytest.approx(100.0, abs=2.0)
+    assert health.governance.score == pytest.approx(15.0)
+    # financial score depends on backer data — check it's within bounds
+    assert health.financial is not None
+    assert 0 <= health.financial.score <= 10.0
+    # total should be 90 + financial
+    assert health.total_score == pytest.approx(
+        30 + 25 + 20 + 15 + health.financial.score, abs=0.1
+    )
 
 
 def test_scorer_ignore_no_ci() -> None:

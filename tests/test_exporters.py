@@ -49,11 +49,12 @@ def _make_test_objects():
     health = HealthScore(
         total_score=78.5,
         documentation=CategoryScore(
-            "Documentation", 22.0, 25.0, [], ["Add CONTRIBUTING.md"]
+            "Documentation", 16.0, 20.0, [], ["Add CONTRIBUTING.md"]
         ),
-        maintenance=CategoryScore("Maintenance", 20.0, 25.0, [], []),
-        ci_cd=CategoryScore("CI/CD", 18.5, 25.0, [], []),
-        governance=CategoryScore("Governance", 18.0, 25.0, [], []),
+        maintenance=CategoryScore("Maintenance", 20.0, 20.0, [], []),
+        ci_cd=CategoryScore("CI/CD", 18.5, 20.0, [], []),
+        governance=CategoryScore("Governance", 18.0, 20.0, [], []),
+        financial=CategoryScore("Financial", 14.0, 20.0, [], []),
     )
     return metrics, health
 

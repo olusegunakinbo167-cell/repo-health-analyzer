@@ -1,5 +1,7 @@
 """Tests for the health scoring engine."""
 
+import pytest
+
 from src.models import (
     CiCdSetup,
     CommunityFiles,
@@ -59,7 +61,7 @@ def make_metrics(
 def test_score_documentation_perfect() -> None:
     metrics = make_metrics()
     cat = score_documentation(metrics)
-    assert cat.score == 25.0
+    assert cat.score == 20.0
     assert cat.penalties == []
     assert cat.recommendations == []
 
@@ -77,16 +79,16 @@ def test_score_documentation_missing_all() -> None:
 def test_score_maintenance_active_high_close_ratio() -> None:
     metrics = make_metrics(commits=25, open_issues=2, closed_issues=18)
     cat = score_maintenance(metrics)
-    # 15 pts commits + 10 pts close ratio = 25
-    assert cat.score == 25.0
+    # 15 pts commits + 10 pts close ratio = 25 raw → 20.0 weighted
+    assert cat.score == 20.0
     assert cat.penalties == []
 
 
 def test_score_maintenance_zero_commits() -> None:
     metrics = make_metrics(commits=0, open_issues=1, closed_issues=1)
     cat = score_maintenance(metrics)
-    # 0 commits + 4 pts for 0.5 close ratio
-    assert cat.score == 4.0
+    # 0 commits + 4 pts for 0.5 close ratio = 4 raw → 3.2 weighted
+    assert cat.score == 3.2
     assert any("No commits" in p for p in cat.penalties)
     assert any("active development" in r for r in cat.recommendations)
 
@@ -95,8 +97,8 @@ def test_score_maintenance_no_issues() -> None:
     """Brand-new repo with zero commits and zero issues."""
     metrics = make_metrics(commits=0, open_issues=0, closed_issues=0)
     cat = score_maintenance(metrics)
-    # 0 commits + 5 neutral pts for no issues
-    assert cat.score == 5.0
+    # 0 commits + 5 neutral pts for no issues = 5 raw → 4.0 weighted
+    assert cat.score == 4.0
     assert any("No commits" in p for p in cat.penalties)
     assert any("No issues tracked" in p for p in cat.penalties)
 
@@ -104,8 +106,8 @@ def test_score_maintenance_no_issues() -> None:
 def test_score_maintenance_low_close_ratio() -> None:
     metrics = make_metrics(commits=5, open_issues=80, closed_issues=20)
     cat = score_maintenance(metrics)
-    # 8 pts commits + 1 pt close ratio
-    assert cat.score == 9.0
+    # 8 pts commits + 1 pt close ratio = 9 raw → 7.2 weighted
+    assert cat.score == pytest.approx(7.2)
     assert any("close ratio" in p.lower() for p in cat.penalties)
 
 
@@ -121,14 +123,14 @@ def test_score_ci_cd_three_workflows() -> None:
         workflow_count=3, workflow_files=["ci.yml", "lint.yml", "release.yml"]
     )
     cat = score_ci_cd(metrics)
-    assert cat.score == 25.0
+    assert cat.score == 20.0
     assert cat.penalties == []
 
 
 def test_score_governance_perfect() -> None:
     metrics = make_metrics(license=True, stale_prs=0)
     cat = score_governance(metrics)
-    assert cat.score == 25.0
+    assert cat.score == 20.0
     assert cat.penalties == []
 
 
@@ -145,12 +147,12 @@ def test_score_governance_no_issues_tracked() -> None:
     """Edge case: no issues/PRs tracked at all."""
     metrics = make_metrics(license=True, open_issues=0, closed_issues=0, stale_prs=0)
     cat = score_governance(metrics)
-    # 10 license + 15 stale (0 stale PRs)
-    assert cat.score == 25.0
+    # 10 license + 15 stale (0 stale PRs) = 25 raw → 20.0 weighted
+    assert cat.score == 20.0
 
 
 def test_score_repo_perfect() -> None:
-    """Perfect repo scores 100."""
+    """Perfect repo scores ~90-93 (financial varies with default backers)."""
     metrics = make_metrics(
         readme=True,
         license=True,
@@ -164,12 +166,15 @@ def test_score_repo_perfect() -> None:
     )
     health = score_repo(metrics)
     assert isinstance(health, HealthScore)
-    assert health.total_score == 100.0
+    # 4 categories × 20 = 80, + financial ~11-13 = ~91-93
+    assert 90.0 <= health.total_score <= 95.0
     assert health.grade == "A"
-    assert health.documentation.score == 25.0
-    assert health.maintenance.score == 25.0
-    assert health.ci_cd.score == 25.0
-    assert health.governance.score == 25.0
+    assert health.documentation.score == 20.0
+    assert health.maintenance.score == 20.0
+    assert health.ci_cd.score == 20.0
+    assert health.governance.score == 20.0
+    assert health.financial is not None
+    assert health.financial.score > 0
 
 
 def test_score_repo_brand_new() -> None:
@@ -188,11 +193,12 @@ def test_score_repo_brand_new() -> None:
     )
     health = score_repo(metrics)
     # Documentation: 0
-    # Maintenance: 0 commits + 5 neutral = 5
+    # Maintenance: 0 commits + 5 neutral = 5 raw → 4.0 weighted
     # CI/CD: 0
-    # Governance: 0 license + 15 (0 stale) = 15
-    # Total = 20
-    assert health.total_score == 20.0
+    # Governance: 0 license + 15 (0 stale) = 15 raw → 12.0 weighted
+    # Financial: ~10 raw → ~10 weighted (neutral, no data)
+    # Total ≈ 26
+    assert 24.0 <= health.total_score <= 28.0
     assert health.grade == "F"
     assert len(health.all_recommendations()) > 0
 
@@ -203,6 +209,10 @@ def test_score_repo_grade_boundaries() -> None:
     # Easier: just check the grade property directly
     base = make_metrics()
     health = score_repo(base)
+
+    from src.models import CategoryScore
+
+    financial_cat = CategoryScore(name="Financial", score=15.0, max_score=20.0)
 
     for score, expected_grade in [
         (95, "A"),
@@ -217,5 +227,6 @@ def test_score_repo_grade_boundaries() -> None:
             maintenance=health.maintenance,
             ci_cd=health.ci_cd,
             governance=health.governance,
+            financial=financial_cat,
         )
         assert hs.grade == expected_grade

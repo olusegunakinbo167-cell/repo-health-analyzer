@@ -23,6 +23,9 @@ KNOWN_RULES = {
     "low_issue_close_ratio",
     "no_issues_tracked",
     "stale_prs",
+    "no_financial_data",
+    "backer_stock_decline",
+    "high_backer_volatility",
 }
 
 
@@ -32,21 +35,23 @@ class RepoConfig:
 
     weights: dict[str, float] = field(
         default_factory=lambda: {
-            "documentation": 25.0,
-            "maintenance": 25.0,
-            "ci_cd": 25.0,
-            "governance": 25.0,
+            "documentation": 20.0,
+            "maintenance": 20.0,
+            "ci_cd": 20.0,
+            "governance": 20.0,
+            "financial": 20.0,
         }
     )
     ignore_rules: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
-        # Normalize weights — ensure all 4 categories present, coerce to float
+        # Normalize weights — ensure all 5 categories present, coerce to float
         defaults = {
-            "documentation": 25.0,
-            "maintenance": 25.0,
-            "ci_cd": 25.0,
-            "governance": 25.0,
+            "documentation": 20.0,
+            "maintenance": 20.0,
+            "ci_cd": 20.0,
+            "governance": 20.0,
+            "financial": 20.0,
         }
         for key, default_val in defaults.items():
             self.weights.setdefault(key, default_val)
@@ -64,7 +69,7 @@ class RepoConfig:
         return sum(self.weights.values())
 
     def weight_for(self, category: str) -> float:
-        return self.weights.get(category, 25.0)
+        return self.weights.get(category, 20.0)
 
     def is_ignored(self, rule_id: str) -> bool:
         return rule_id in self.ignore_rules
