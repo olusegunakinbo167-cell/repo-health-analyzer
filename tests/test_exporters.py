@@ -121,7 +121,7 @@ def test_json_exporter_with_metadata():
         repository="octocat/Hello-World",
         commit_sha="abc123def456789",
         timestamp="2026-07-25T10:00:00Z",
-        tool_version="0.2.0",
+        tool_version="0.2.1",
     )
 
     output = exporter.export(metrics, health, metadata=metadata)
@@ -130,7 +130,7 @@ def test_json_exporter_with_metadata():
     assert data["metadata"]["repository"] == "octocat/Hello-World"
     assert data["metadata"]["commit_sha"] == "abc123def456789"
     assert data["metadata"]["timestamp"] == "2026-07-25T10:00:00Z"
-    assert data["metadata"]["tool_version"] == "0.2.0"
+    assert data["metadata"]["tool_version"] == "0.2.1"
 
 
 # ── Markdown exporter ──
