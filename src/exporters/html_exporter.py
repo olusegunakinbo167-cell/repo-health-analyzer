@@ -97,13 +97,28 @@ def _render_html(
         bar_width = max(2, min(100, pct))
 
         delta_html = ""
-        if baseline_diff:
+        if baseline_diff and key in baseline_diff.categories:
             cd = baseline_diff.categories[key]
-            d = cd.delta
-            arrow = "▲" if d > 0.5 else "▼" if d < -0.5 else "■"
-            sign = "+" if d > 0 else ""
-            delta_color = "#22c55e" if d > 0.5 else "#ef4444" if d < -0.5 else "#6b7280"
-            delta_html = f'<span style="color:{delta_color};font-weight:600;margin-left:8px">{arrow} {sign}{d:.1f}</span>'
+            if cd.delta is not None:
+                # Use percentage delta if max_score changed (weight rebalancing)
+                use_pct = (
+                    cd.baseline_max_score is not None
+                    and abs(cd.max_score - cd.baseline_max_score) > 0.01
+                    and cd.percentage_delta is not None
+                )
+                if use_pct:
+                    d = cd.percentage_delta
+                    sign = "+" if d > 0 else ""
+                    d_str = f"{sign}{d:.1f}pp"
+                else:
+                    d = cd.delta
+                    sign = "+" if d > 0 else ""
+                    d_str = f"{sign}{d:.1f}"
+                arrow = "▲" if d > 0.5 else "▼" if d < -0.5 else "■"
+                delta_color = "#22c55e" if d > 0.5 else "#ef4444" if d < -0.5 else "#6b7280"
+                delta_html = f'<span style="color:{delta_color};font-weight:600;margin-left:8px">{arrow} {d_str}</span>'
+            else:
+                delta_html = '<span style="color:#6b7280;font-weight:600;margin-left:8px">— new</span>'
 
         # Penalties / recommendations
         issues_html = ""
@@ -142,12 +157,29 @@ def _render_html(
             f"<td><strong>{sign}{d:.1f} {arrow}</strong></td></tr>"
         ]
         for key in cat_keys:
+            if key not in baseline_diff.categories:
+                continue
             cd = baseline_diff.categories[key]
+            if cd.baseline is None or cd.delta is None:
+                baseline_str = "—"
+                delta_str = '<span style="color:#6b7280">new</span>'
+            else:
+                baseline_str = f"{cd.baseline:.1f}"
+                # Use percentage delta if max_score changed
+                use_pct = (
+                    cd.baseline_max_score is not None
+                    and abs(cd.max_score - cd.baseline_max_score) > 0.01
+                    and cd.percentage_delta is not None
+                )
+                if use_pct:
+                    delta_str = f"{cd.percentage_delta:+.1f}pp {cd.trend}"
+                else:
+                    delta_str = f"{cd.delta:+.1f} {cd.trend}"
             baseline_rows.append(
                 f"<tr><td>{_h(cd.name)}</td>"
-                f"<td>{cd.baseline:.1f}</td>"
+                f"<td>{baseline_str}</td>"
                 f"<td>{cd.current:.1f}</td>"
-                f"<td>{cd.delta:+.1f} {cd.trend}</td></tr>"
+                f"<td>{delta_str}</td></tr>"
             )
         baseline_commit_html = ""
         if baseline_diff.baseline_commit:
