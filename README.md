@@ -86,6 +86,30 @@ repo-health-analyzer myorg/myrepo \
   --baseline ./previous-run.json
 ```
 
+### Baseline Comparison
+
+Pass `--baseline PATH` with a prior `analyze` JSON artifact to compare the current run against a baseline commit. Category score deltas appear in terminal output and in exported Markdown/HTML/JSON reports.
+
+**Schema drift handling:** When a category exists in the current run but was not present in the baseline file (e.g., new scoring categories added in a tool upgrade), the category is rendered as **new** rather than defaulting its baseline score to `0.0`. Missing categories are excluded from the overall score delta sum, so they can't mask real regressions in comparable categories.
+
+**Weight rebalancing:** When a category's `max_score` differs between baseline and current runs, the delta is normalized to percentage points and displayed as `±X.Xpp` instead of raw point values. For example, Documentation scoring 20/25 (80%) → 16/20 (80%) is a **0.0pp** change, not −4.0 pts.
+
+In JSON exports, missing baseline categories are `null`:
+
+```json
+"financial": {
+  "name": "Financial",
+  "current": 11.0,
+  "baseline": null,
+  "delta": null,
+  "percentage_delta": null
+}
+```
+
+Terminal and HTML/Markdown reporters display `new` / `— new` badges for missing-baseline categories, and `±X.Xpp` when category weights have changed.
+
+The Python API is `BaselineDiff.compare(current: HealthScore, baseline: HealthScore) -> BaselineDiff` in `src/models.py`.
+
 ### Movies subcommand (dev downtime 🎬)
 
 `repo-health-analyzer movies` wraps the [OpenClaw Fandango CLI](https://github.com/openclaw/openclaw) for checking movie showtimes, theater schedules, and seat availability — a fun easter egg for dev downtime, not part of repo health scoring.
