@@ -32,7 +32,9 @@ def _category_score_style(score: float, max_score: float = 25.0) -> str:
     return _score_style(pct)
 
 
-def _delta_style(delta: float) -> str:
+def _delta_style(delta: float | None) -> str:
+    if delta is None:
+        return "dim"
     if delta > 0.5:
         return "green"
     if delta < -0.5:
@@ -102,10 +104,23 @@ def render_rich(
 
         row: list[str] = [cat.name, score_text]
         if has_baseline:
-            cd = baseline_diff.categories[key]  # type: ignore[index]
-            d_color = _delta_style(cd.delta)
-            d_sign = "+" if cd.delta > 0 else ""
-            delta_text = f"[{d_color}]{d_sign}{cd.delta:.1f}[/{d_color}]"
+            cd = baseline_diff.categories.get(key) if baseline_diff else None
+            if cd and cd.delta is not None:
+                d_color = _delta_style(cd.delta)
+                d_sign = "+" if cd.delta > 0 else ""
+                # Prefer percentage delta when weights differ
+                use_pct = (
+                    cd.baseline_max_score is not None
+                    and abs(cd.max_score - cd.baseline_max_score) > 0.01
+                    and cd.percentage_delta is not None
+                )
+                if use_pct:
+                    d_val = f"{cd.percentage_delta:+.1f}pp"
+                else:
+                    d_val = f"{d_sign}{cd.delta:.1f}"
+                delta_text = f"[{d_color}]{d_val}[/{d_color}]"
+            else:
+                delta_text = "[dim]new[/dim]"
             row.append(delta_text)
         row.extend([f"[{color}]{status}[/{color}]", issues])
         table.add_row(*row)
