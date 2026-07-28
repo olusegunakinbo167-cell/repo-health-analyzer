@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from __future__ import annotations
-
 from typing import Any
 
 from ..models import BaselineDiff, HealthScore, RepoMetrics
@@ -332,7 +330,7 @@ def _render_markdown(
 
     # Raw metrics — collapsible
     lines.append("<details>")
-        lines.append("<summary><b>📊 Raw Metrics</b></summary>")
+    lines.append("<summary><b>📊 Raw Metrics</b></summary>")
     lines.append("")
     cf = metrics.community_files
     ci = metrics.ci_cd
