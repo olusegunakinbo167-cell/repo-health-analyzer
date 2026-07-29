@@ -147,6 +147,138 @@ class GitHubClient:
         return await self.get_repo(owner, repo)
 
     # ------------------------------------------------------------------
+    # Organization / user repository listing
+    # ------------------------------------------------------------------
+
+    def _parse_link_header(self, link_header: str | None) -> dict[str, str]:
+        """Parse GitHub's RFC 5988 Link header into rel → url mapping.
+
+        Example: '<https://api.github.com/...?page=2>; rel="next", ...'
+        """
+        links: dict[str, str] = {}
+        if not link_header:
+            return links
+        for part in link_header.split(","):
+            part = part.strip()
+            if ";" not in part:
+                continue
+            url_part, rel_part = part.split(";", 1)
+            url = url_part.strip()[1:-1]  # strip < >
+            rel_part = rel_part.strip()
+            if rel_part.startswith('rel="') and rel_part.endswith('"'):
+                rel = rel_part[5:-1]
+                links[rel] = url
+        return links
+
+    async def list_org_repos(
+        self,
+        org: str,
+        *,
+        include_forks: bool = False,
+        include_archived: bool = False,
+        min_stars: int = 0,
+    ) -> list["OrgRepoInfo"]:
+        """List all public repositories for a GitHub organization or user.
+
+        Automatically falls back from /orgs/{org}/repos to /users/{org}/repos
+        if the org endpoint returns 404 (i.e., the account is a user, not an org).
+
+        Handles pagination via Link headers. Results are filtered by
+        fork/archived status and minimum star count.
+
+        Args:
+            org: GitHub organization or user login.
+            include_forks: If False, forked repositories are excluded.
+            include_archived: If False, archived repositories are excluded.
+            min_stars: Minimum stargazer count to include (default: 0).
+
+        Returns:
+            List of OrgRepoInfo objects, sorted by stargazers_count descending.
+
+        Raises:
+            httpx.HTTPStatusError: If neither org nor user endpoint is found,
+                or on non-404 API errors.
+        """
+        from .models import OrgRepoInfo
+
+        # Try org endpoint first, fall back to user endpoint on 404
+        endpoints = [
+            f"/orgs/{org}/repos",
+            f"/users/{org}/repos",
+        ]
+
+        repos_raw: list[dict[str, Any]] = []
+        found_endpoint: str | None = None
+
+        for endpoint in endpoints:
+            page = 1
+            repos_raw = []
+            while True:
+                resp = await self._client.get(
+                    endpoint,
+                    params={
+                        "type": "all",
+                        "per_page": 100,
+                        "page": page,
+                        "sort": "full_name",
+                        "direction": "asc",
+                    },
+                )
+                if resp.status_code == 404:
+                    # Org not found — try next endpoint (user fallback)
+                    repos_raw = []
+                    break
+                resp.raise_for_status()
+                data = resp.json()
+                if not isinstance(data, list):
+                    break
+                repos_raw.extend(data)
+                # Check Link header for pagination
+                links = self._parse_link_header(resp.headers.get("Link"))
+                if "next" not in links:
+                    found_endpoint = endpoint
+                    break
+                page += 1
+            if found_endpoint:
+                break
+
+        if not found_endpoint and not repos_raw:
+            # Both endpoints returned 404
+            raise httpx.HTTPStatusError(
+                f"Organization/user '{org}' not found",
+                request=resp.request,  # type: ignore[possibly-unbound]
+                response=resp,  # type: ignore[possibly-unbound]
+            )
+
+        # Filter and convert to OrgRepoInfo
+        filtered: list[OrgRepoInfo] = []
+        for r in repos_raw:
+            if not include_forks and r.get("fork"):
+                continue
+            if not include_archived and r.get("archived"):
+                continue
+            stars = r.get("stargazers_count", 0)
+            if stars < min_stars:
+                continue
+            filtered.append(
+                OrgRepoInfo(
+                    full_name=r["full_name"],
+                    name=r["name"],
+                    description=r.get("description"),
+                    stars=stars,
+                    language=r.get("language"),
+                    fork=bool(r.get("fork", False)),
+                    archived=bool(r.get("archived", False)),
+                    default_branch=r.get("default_branch", "main"),
+                    html_url=r.get("html_url", ""),
+                )
+            )
+
+        # Sort by stars descending, then by full_name for stable ordering
+        filtered.sort(key=lambda x: (-x.stars, x.full_name))
+        return filtered
+
+    # ------------------------------------------------------------------
     # Community files
     # ------------------------------------------------------------------
 
@@ -374,4 +506,3 @@ class GitHubClient:
                 result[path] = content
 
         return result
-
