@@ -86,7 +86,7 @@ class CategoryScore:
     """Score breakdown for a single health category."""
 
     name: str
-    score: float  # 0.0–25.0
+    score: float  # 0.0–max_score
     max_score: float = 25.0
     penalties: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
@@ -100,13 +100,23 @@ class CategoryScore:
 
 @dataclass(slots=True)
 class HealthScore:
-    """Overall repository health score (0–100)."""
+    """Overall repository health score (0–100).
+
+    Category weights (Phase 3 - academic impact):
+    - documentation:    20 pts
+    - maintenance:      25 pts
+    - ci_cd:            25 pts
+    - governance:       20 pts
+    - academic_impact:  10 pts
+    Total: 100 pts
+    """
 
     total_score: float
     documentation: CategoryScore
     maintenance: CategoryScore
     ci_cd: CategoryScore
     governance: CategoryScore
+    academic_impact: CategoryScore
 
     @property
     def grade(self) -> str:
@@ -118,6 +128,7 @@ class HealthScore:
             + self.maintenance.max_score
             + self.ci_cd.max_score
             + self.governance.max_score
+            + self.academic_impact.max_score
         )
         s = (self.total_score / total_max * 100.0) if total_max else 0.0
         if s >= 90:
@@ -138,6 +149,7 @@ class HealthScore:
             self.maintenance,
             self.ci_cd,
             self.governance,
+            self.academic_impact,
         ):
             recs.extend(cat.recommendations)
         return recs
@@ -148,6 +160,7 @@ class HealthScore:
             "maintenance": self.maintenance,
             "ci_cd": self.ci_cd,
             "governance": self.governance,
+            "academic_impact": self.academic_impact,
         }
 
 
