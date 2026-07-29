@@ -27,7 +27,7 @@ class ReportMetadata:
     repository: str
     commit_sha: str | None
     timestamp: str
-    tool_version: str = "0.2.1"
+    tool_version: str = "0.4.0"
 
 
 class Exporter(Protocol):

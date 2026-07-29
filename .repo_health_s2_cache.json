@@ -366,7 +366,7 @@
     }
   },
   "ok": {
-    "timestamp": 1785339297.704972,
+    "timestamp": 1785341167.841173,
     "paper": {
       "paperId": "ok",
       "corpusId": null,
@@ -390,7 +390,7 @@
     }
   },
   "p1": {
-    "timestamp": 1785339297.8032968,
+    "timestamp": 1785341167.905919,
     "paper": {
       "paperId": "p1",
       "corpusId": null,
@@ -416,7 +416,7 @@
     }
   },
   "p3": {
-    "timestamp": 1785339297.8049335,
+    "timestamp": 1785341167.9088185,
     "paper": {
       "paperId": "p3",
       "corpusId": null,
@@ -436,6 +436,536 @@
       "authors": [],
       "tldr": null,
       "publicationTypes": [],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "acl:n19-1423": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "1810.04805": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "journals/corr/abs-1810-04805": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "n19-1423": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "10.18653/v1/n19-1423": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "doi:10.18653/v1/n19-1423": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "52967399": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "arxiv:1810.04805": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "2951055169": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "df2b0e26d0599ce3e70df8a9da02e51594e0e992": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
       "publicationDate": null,
       "journal": null,
       "citationVelocity": null
