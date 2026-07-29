@@ -20,6 +20,8 @@ class RepoCollector:
         *,
         s2_api_key: str | None = None,
         skip_academic_impact: bool = False,
+        s2_cache_path: str | None = None,
+        s2_enable_cache: bool = True,
     ):
         self._client = client
         self._token = token
@@ -32,6 +34,11 @@ class RepoCollector:
         self._skip_academic = skip_academic_impact or (
             os.getenv("REPO_HEALTH_SKIP_ACADEMIC", "").lower() in ("1", "true", "yes")
         )
+        # Phase 4: S2 cache config
+        self._s2_cache_path = s2_cache_path or os.getenv("S2_CACHE_PATH")
+        self._s2_enable_cache = s2_enable_cache and os.getenv(
+            "S2_DISABLE_CACHE", ""
+        ).lower() not in ("1", "true", "yes")
 
     async def __aenter__(self) -> RepoCollector:
         if self._client is None:
@@ -76,9 +83,12 @@ class RepoCollector:
                     paper_refs = extract_from_files(doc_files)
                     if paper_refs:
                         # Resolve via S2 (with graceful degradation on rate limits)
+                        # Phase 4: S2 response caching with 30-day TTL
                         try:
                             async with SemanticScholarClient(
-                                api_key=self._s2_api_key
+                                api_key=self._s2_api_key,
+                                cache_path=self._s2_cache_path,
+                                enable_cache=self._s2_enable_cache,
                             ) as s2:
                                 academic_impact = await resolve_paper_references(
                                     paper_refs, s2_client=s2
