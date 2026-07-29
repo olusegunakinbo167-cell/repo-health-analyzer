@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from .config import RepoConfig
-from .metrics.academic_impact import score_academic_impact_bonus
 from .metrics.bus_factor import calculate_bus_factor
 from .models import CategoryScore, HealthScore, RepoMetrics
 
@@ -20,16 +19,12 @@ def score_documentation(
 ) -> CategoryScore:
     """Score Documentation based on community files.
 
-    Default weights (raw):
-    - README: 10 pts
-    - LICENSE: 5 pts
-    - CONTRIBUTING.md: 5 pts
-    - CODE_OF_CONDUCT.md: 5 pts
-    Total raw: 25 pts (scaled to config weight)
-
-    Academic impact bonus (Option B): up to +5 pts, capped at category max.
-    Repos that reference research papers in their docs get a bonus reflecting
-    academic grounding.  See metrics.academic_impact.score_academic_impact_bonus.
+    Default weights (raw, 20 pt scale):
+    - README: 8 pts
+    - LICENSE: 4 pts
+    - CONTRIBUTING.md: 4 pts
+    - CODE_OF_CONDUCT.md: 4 pts
+    Total raw: 20 pts (scaled to config weight)
     """
     config = config or RepoConfig()
     cf = metrics.community_files
@@ -37,58 +32,38 @@ def score_documentation(
     penalties: list[str] = []
     recommendations: list[str] = []
 
-    # README — 10 pts
+    # README — 8 pts
     if cf.readme or config.is_ignored("missing_readme"):
-        raw_score += 10.0
+        raw_score += 8.0
     else:
         penalties.append("Missing README file")
         recommendations.append("Add a README.md describing the project, installation, and usage")
 
-    # LICENSE — 5 pts
+    # LICENSE — 4 pts
     if cf.license or config.is_ignored("missing_license"):
-        raw_score += 5.0
+        raw_score += 4.0
     else:
         penalties.append("Missing LICENSE file")
         recommendations.append("Add a LICENSE file to clarify usage terms (e.g., MIT, Apache-2.0)")
 
-    # CONTRIBUTING — 5 pts
+    # CONTRIBUTING — 4 pts
     if cf.contributing or config.is_ignored("missing_contributing"):
-        raw_score += 5.0
+        raw_score += 4.0
     else:
         penalties.append("Missing CONTRIBUTING.md")
         recommendations.append("Add CONTRIBUTING.md with guidelines for contributors")
 
-    # CODE_OF_CONDUCT — 5 pts
+    # CODE_OF_CONDUCT — 4 pts
     if cf.code_of_conduct or config.is_ignored("missing_code_of_conduct"):
-        raw_score += 5.0
+        raw_score += 4.0
     else:
         penalties.append("Missing CODE_OF_CONDUCT.md")
         recommendations.append(
             "Add CODE_OF_CONDUCT.md to set community standards (e.g., Contributor Covenant)"
         )
 
-    # Academic impact bonus (Option B) — up to +5 pts, capped at 25 raw
-    academic_impact = getattr(metrics, "academic_impact", None)
-    ignore_academic = config.is_ignored("academic_impact") if config else False
-    if academic_impact and not ignore_academic:
-        bonus, acad_penalties, acad_recs = score_academic_impact_bonus(
-            academic_impact
-        )
-        if bonus > 0:
-            raw_score = min(25.0, raw_score + bonus)
-            # Add a positive signal (not a penalty)
-            n_papers = academic_impact.paper_count
-            n_resolved = academic_impact.resolved_count
-            if n_resolved > 0:
-                recommendations.append(
-                    f"Academic impact: {n_resolved} research paper(s) referenced "
-                    f"({academic_impact.total_citations} total citations)"
-                )
-        penalties.extend(acad_penalties)
-        recommendations.extend(acad_recs)
-
     weight = config.weight_for("documentation")
-    score = _apply_weight(raw_score, 25.0, weight)
+    score = _apply_weight(raw_score, 20.0, weight)
 
     return CategoryScore(
         name="Documentation",
@@ -282,16 +257,17 @@ def score_governance(
 ) -> CategoryScore:
     """Score Governance based on stale PR ratio and license presence.
 
-    License presence: raw 0–10 pts
-      LICENSE present → 10 pts
-      LICENSE missing →  0 pts
+    License presence: raw 0–8 pts
+      LICENSE present → 8 pts
+      LICENSE missing → 0 pts
 
-    Stale PR ratio: raw 0–15 pts
-      0 stale PRs                    → 15 pts
-      stale / (open+closed) <= 0.10  → 10 pts
-      stale / (open+closed) <= 0.25  →  5 pts
+    Stale PR ratio: raw 0–12 pts
+      0 stale PRs                    → 12 pts
+      stale / (open+closed) <= 0.10  →  8 pts
+      stale / (open+closed) <= 0.25  →  4 pts
       stale / (open+closed) >  0.25  →  0 pts
-      no issues/PRs tracked          →  7 pts (neutral)
+      no issues/PRs tracked          →  6 pts (neutral)
+    Total raw: 20 pts
     """
     config = config or RepoConfig()
     cf = metrics.community_files
@@ -301,34 +277,34 @@ def score_governance(
     penalties: list[str] = []
     recommendations: list[str] = []
 
-    # License — 10 pts
+    # License — 8 pts
     ignore_license = config.is_ignored("missing_license")
     if cf.license or ignore_license:
-        raw_score += 10.0
+        raw_score += 8.0
     else:
         penalties.append("Repository has no LICENSE file — governance/compliance risk")
         recommendations.append("Add a LICENSE file (MIT, Apache-2.0, GPL-3.0, etc.)")
 
-    # Stale PRs — 15 pts
+    # Stale PRs — 12 pts
     total_tracked = maint.open_issues + maint.closed_issues
     stale = maint.stale_prs
     ignore_stale = config.is_ignored("stale_prs")
     ignore_no_issues = config.is_ignored("no_issues_tracked")
 
     if stale == 0:
-        raw_score += 15.0
+        raw_score += 12.0
     elif total_tracked == 0:
-        raw_score += 7.0
+        raw_score += 6.0
         if not ignore_no_issues:
             penalties.append("No issues/PRs tracked — cannot assess PR governance")
     else:
         stale_ratio = stale / max(total_tracked, 1)
         if ignore_stale:
-            raw_score += 15.0
+            raw_score += 12.0
         elif stale_ratio <= 0.10:
-            raw_score += 10.0
+            raw_score += 8.0
         elif stale_ratio <= 0.25:
-            raw_score += 5.0
+            raw_score += 4.0
             penalties.append(
                 f"{stale} stale PR(s) open >30 days ({stale_ratio:.0%} of tracked items)"
             )
@@ -344,10 +320,212 @@ def score_governance(
             )
 
     weight = config.weight_for("governance")
-    score = _apply_weight(raw_score, 25.0, weight)
+    score = _apply_weight(raw_score, 20.0, weight)
 
     return CategoryScore(
         name="Governance",
+        score=score,
+        max_score=weight,
+        penalties=penalties,
+        recommendations=recommendations,
+    )
+
+
+def score_academic_impact(
+    metrics: RepoMetrics, config: RepoConfig | None = None
+) -> CategoryScore:
+    """Score Academic Impact based on research paper references.
+
+    Scoring rubric (raw 0–10 pts):
+
+    1. Paper presence (0–2.0 pts):
+       1 paper → 0.5, 2 → 1.0, 3-5 → 1.5, 6+ → 2.0
+
+    2. Citation impact, age-normalized (0–3.0 pts):
+       avg_citation_velocity < 10/yr  → 0
+       10–50/yr  → 1.0
+       50–150/yr → 2.0
+       150+/yr   → 3.0
+
+    3. Influential citation ratio (0–1.5 pts):
+       < 5%  → 0
+       5–10% → 0.5
+       10–20% → 1.0
+       20%+  → 1.5
+
+    4. Venue quality (0–1.0 pts):
+       venue_prestige_score scaled directly (0.0–1.0)
+
+    5. Recency (0–1.0 pts):
+       ≥1 paper < 2yr old → 1.0
+       ≥1 paper < 3yr old → 0.5
+       else → 0
+
+    6. Open access (0–0.5 pts):
+       OA_ratio >= 0.5 → 0.5
+
+    7. Field relevance (0–1.0 pts):
+       At least one paper FoS overlaps repo language/domain → 1.0
+       (heuristic mapping, best-effort)
+
+    Penalties:
+    - unresolved_ratio > 0.3 → −0.5
+    - all papers > 5yr old  → −0.5
+    - zero influential citations across all papers → −0.5
+
+    Floor: 0, Cap: max_score
+    """
+    config = config or RepoConfig()
+    impact = getattr(metrics, "academic_impact", None)
+
+    penalties: list[str] = []
+    recommendations: list[str] = []
+
+    if impact is None or impact.paper_count == 0:
+        # No academic impact data — score 0, neutral (not penalized)
+        weight = config.weight_for("academic_impact")
+        return CategoryScore(
+            name="Academic Impact",
+            score=0.0,
+            max_score=weight,
+            penalties=[],
+            recommendations=[
+                "No research papers referenced in documentation — "
+                "consider citing foundational papers if applicable"
+            ],
+        )
+
+    n = impact.paper_count
+    resolved = impact.resolved_count
+    raw_score = 0.0
+
+    # 1. Paper presence (0–2.0)
+    if n >= 6:
+        paper_score = 2.0
+    elif n >= 3:
+        paper_score = 1.5
+    elif n >= 2:
+        paper_score = 1.0
+    elif n >= 1:
+        paper_score = 0.5
+    else:
+        paper_score = 0.0
+    raw_score += paper_score
+
+    # 2. Citation impact, age-normalized (0–3.0)
+    vel = impact.avg_citation_velocity
+    if vel >= 150:
+        citation_score = 3.0
+    elif vel >= 50:
+        citation_score = 2.0
+    elif vel >= 10:
+        citation_score = 1.0
+    else:
+        citation_score = 0.0
+    raw_score += citation_score
+
+    # 3. Influential citation ratio (0–1.5)
+    ir = impact.influential_ratio
+    if ir >= 0.20:
+        ir_score = 1.5
+    elif ir >= 0.10:
+        ir_score = 1.0
+    elif ir >= 0.05:
+        ir_score = 0.5
+    else:
+        ir_score = 0.0
+    raw_score += ir_score
+
+    # 4. Venue quality (0–1.0)
+    venue_score = max(0.0, min(1.0, impact.venue_prestige_score))
+    raw_score += venue_score
+
+    # 5. Recency (0–1.0)
+    recent_2yr = impact.recent_papers_count(years=2)
+    recent_3yr = impact.recent_papers_count(years=3)
+    if recent_2yr > 0:
+        recency_score = 1.0
+    elif recent_3yr > 0:
+        recency_score = 0.5
+    else:
+        recency_score = 0.0
+    raw_score += recency_score
+
+    # 6. Open access (0–0.5)
+    oa_score = 0.5 if impact.open_access_ratio >= 0.5 else 0.0
+    raw_score += oa_score
+
+    # 7. Field relevance (0–1.0)
+    # Simple heuristic: map repo language to common FoS
+    lang_fos_map = {
+        "python": {"computer science", "engineering"},
+        "javascript": {"computer science"},
+        "typescript": {"computer science"},
+        "java": {"computer science", "engineering"},
+        "go": {"computer science"},
+        "rust": {"computer science", "engineering"},
+        "c": {"computer science", "engineering"},
+        "c++": {"computer science", "engineering", "physics"},
+        "r": {"medicine", "biology", "mathematics"},
+        "julia": {"mathematics", "physics", "computer science"},
+    }
+    repo_lang = (metrics.language or "").lower()
+    paper_fos = {f.lower() for f in impact.fields_of_study}
+    expected_fos = lang_fos_map.get(repo_lang, set())
+    field_relevance_score = 0.0
+    if expected_fos & paper_fos:
+        field_relevance_score = 1.0
+    elif paper_fos:
+        # Papers exist but FoS doesn't match language — still give partial credit
+        # for having academic grounding at all
+        field_relevance_score = 0.5
+    raw_score += field_relevance_score
+
+    # Penalties
+    if resolved > 0:
+        unresolved_ratio = (n - resolved) / n if n else 0
+        if unresolved_ratio > 0.3:
+            raw_score = max(0.0, raw_score - 0.5)
+            penalties.append(
+                f"{n - resolved}/{n} referenced paper(s) could not be resolved via Semantic Scholar"
+            )
+
+        # All papers > 5yr old?
+        recent_5yr = impact.recent_papers_count(years=5)
+        if recent_5yr == 0:
+            raw_score = max(0.0, raw_score - 0.5)
+            penalties.append("All referenced papers are older than 5 years")
+            recommendations.append(
+                "Referenced papers are all older than 5 years — "
+                "check if newer related work exists"
+            )
+
+        # Zero influential citations?
+        if impact.total_influential_citations == 0:
+            raw_score = max(0.0, raw_score - 0.5)
+            penalties.append("Referenced papers have zero influential citations")
+
+    # Positive signal / recommendations
+    if resolved > 0:
+        recommendations.append(
+            f"Academic impact: {resolved} research paper(s) referenced "
+            f"({impact.total_citations} total citations, h-index {impact.h_index}, "
+            f"tier: {impact.impact_tier})"
+        )
+
+    if impact.open_access_ratio < 0.5 and resolved >= 2:
+        recommendations.append(
+            "Consider referencing open-access versions of papers where available"
+        )
+
+    # Cap and floor
+    raw_score = max(0.0, min(10.0, raw_score))
+
+    weight = config.weight_for("academic_impact")
+    score = _apply_weight(raw_score, 10.0, weight)
+
+    return CategoryScore(
+        name="Academic Impact",
         score=score,
         max_score=weight,
         penalties=penalties,
@@ -362,8 +540,15 @@ def score_repo(metrics: RepoMetrics, config: RepoConfig | None = None) -> Health
     maintenance = score_maintenance(metrics, config)
     ci_cd = score_ci_cd(metrics, config)
     governance = score_governance(metrics, config)
+    academic_impact = score_academic_impact(metrics, config)
 
-    total = documentation.score + maintenance.score + ci_cd.score + governance.score
+    total = (
+        documentation.score
+        + maintenance.score
+        + ci_cd.score
+        + governance.score
+        + academic_impact.score
+    )
 
     return HealthScore(
         total_score=round(total, 2),
@@ -371,4 +556,5 @@ def score_repo(metrics: RepoMetrics, config: RepoConfig | None = None) -> Health
         maintenance=maintenance,
         ci_cd=ci_cd,
         governance=governance,
+        academic_impact=academic_impact,
     )
