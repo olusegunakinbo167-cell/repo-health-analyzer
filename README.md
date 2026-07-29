@@ -36,6 +36,7 @@ repo-health-analyzer weather <command> [options]
 | `--token TOKEN` | GitHub personal access token (default: `GITHUB_TOKEN` env var) |
 | `--s2-api-key KEY` | Semantic Scholar API key for academic impact metrics (default: `S2_API_KEY` / `SEMANTIC_SCHOLAR_API_KEY` env var) |
 | `--skip-academic` | Skip academic impact / paper reference scanning (faster, no S2 API calls) |
+| `--academic-strict` | Raise exceptions on skipped citation files (binary, oversize, parse failures); default: skip with warnings recorded in diagnostics |
 | `--min-score N` | Quality gate threshold — exit with code 1 if health score is below N (default: 70.0) |
 | `--config PATH` | Path to local `.repo-health.yml` config file (default: auto-fetch from target repo root) |
 | `--baseline PATH` | Path to a prior artifact JSON to compare against — category score deltas are shown in terminal and Markdown output |
@@ -59,6 +60,19 @@ High-impact papers (≥100 avg citations) and recent papers (<3 years) receive a
 An S2 API key is recommended for reliable lookups — unauthenticated requests share a global rate limit and may be throttled. Get a free key at https://www.semanticscholar.org/product/api#api-key-form, then set `S2_API_KEY` or pass `--s2-api-key`.
 
 To disable academic impact scanning entirely (offline / CI environments), use `--skip-academic` or set `REPO_HEALTH_SKIP_ACADEMIC=1`.
+
+#### Citation file safety
+
+The citation extraction pipeline enforces strict file-level safety guards:
+
+- **2 MB size limit** — files larger than 2 MB are truncated with a warning recorded in diagnostics
+- **Binary detection** — NUL byte / control-char heuristic skips binary blobs cleanly
+- **ReDoS protection** — all regexes use bounded quantifiers; Markdown is scanned in 500 KB chunks with overlap to prevent catastrophic backtracking
+- **Robust encoding** — UTF-8 → Latin-1 fallback chain with replacement characters
+
+Parser diagnostics (files scanned, skipped, truncated, syntax warnings) are included in both JSON and Markdown exports under `extraction_diagnostics` / "Extraction summary".
+
+For CI pipelines that should fail fast on malformed citation files, use `--academic-strict` (or set `REPO_HEALTH_ACADEMIC_STRICT=1`). In strict mode, binary files, oversize inputs, and parse failures raise `ExtractionError` instead of being skipped with warnings.
 
 ### Examples
 
