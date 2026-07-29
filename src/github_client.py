@@ -438,9 +438,23 @@ class GitHubClient:
     ) -> str | None:
         """Fetch raw text content of a file via GitHub contents API.
 
-        Returns None if file does not exist or is not decodable.
+        Enforces a 2 MB file size limit. Binary files are rejected.
+        Encoding fallbacks: utf-8 → utf-8-sig → latin-1 → cp1252 → utf-8/replace.
+        Returns None if file does not exist, is too large, is binary,
+        or is not decodable.
         """
         import base64
+
+        MAX_FILE_SIZE = 2 * 1024 * 1024  # 2 MB
+
+        def is_binary(data: bytes) -> bool:
+            """Heuristic binary detection (NUL / control char ratio)."""
+            sample = data[:8192]
+            if b"\x00" in sample:
+                return True
+            suspicious = sum(1 for b in sample if b < 32 and b not in (9, 10, 13, 12, 8))
+            ratio = suspicious / max(1, len(sample))
+            return ratio > 0.30
 
         resp = await self._client.get(f"/repos/{owner}/{repo}/contents/{path}")
         if resp.status_code != 200:
@@ -448,12 +462,48 @@ class GitHubClient:
         data = resp.json()
         if not isinstance(data, dict):
             return None
+
+        # Size guard — check GitHub "size" field (bytes) before downloading content
+        size = data.get("size", 0)
+        if isinstance(size, int) and size > MAX_FILE_SIZE:
+            # File too large — skip to prevent memory exhaustion
+            return None
+
         content_b64 = data.get("content")
         encoding = data.get("encoding")
         if not content_b64 or encoding != "base64":
             return None
+
         try:
-            return base64.b64decode(content_b64).decode("utf-8", errors="replace")
+            raw = base64.b64decode(content_b64)
+        except Exception:
+            return None
+
+        # Size guard on decoded bytes
+        if len(raw) > MAX_FILE_SIZE:
+            return None
+
+        # Binary detection
+        if is_binary(raw):
+            return None
+
+        # Robust encoding fallback
+        for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252"):
+            try:
+                text = raw.decode(enc)
+                # Post-decode binary check (NUL chars)
+                if "\x00" in text[:8192]:
+                    continue
+                return text
+            except (UnicodeDecodeError, LookupError):
+                continue
+
+        # Last resort: utf-8 with replacement
+        try:
+            text = raw.decode("utf-8", errors="replace")
+            if "\x00" in text[:8192]:
+                return None
+            return text
         except Exception:
             return None
 
