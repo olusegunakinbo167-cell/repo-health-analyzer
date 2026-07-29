@@ -41,6 +41,17 @@ class S2Paper:
     fields_of_study: list[str]
     external_ids: dict[str, str]
     authors: list[str]
+    # --- Enhanced academic impact fields (Phase 1) ---
+    tldr: str | None = None
+    publication_types: list[str] = None  # e.g. ["JournalArticle", "Review"]
+    publication_date: str | None = None  # ISO date, e.g. "2017-06-12"
+    journal_name: str | None = None
+    citation_velocity: int | None = None  # citations / year, if available from S2
+
+    def __post_init__(self) -> None:
+        # Ensure publication_types is always a list
+        if self.publication_types is None:
+            object.__setattr__(self, "publication_types", [])
 
     @classmethod
     def from_s2_json(cls, data: dict[str, Any]) -> S2Paper:
@@ -60,6 +71,37 @@ class S2Paper:
         if not isinstance(fos, list):
             fos = []
 
+        # --- Enhanced fields ---
+        # TLDR
+        tldr_text: str | None = None
+        tldr_obj = data.get("tldr")
+        if isinstance(tldr_obj, dict):
+            tldr_text = tldr_obj.get("text")
+
+        # Publication types
+        pub_types = data.get("publicationTypes") or []
+        if not isinstance(pub_types, list):
+            pub_types = []
+
+        # Publication date (ISO)
+        pub_date = data.get("publicationDate")
+
+        # Journal name
+        journal_name: str | None = None
+        journal_obj = data.get("journal")
+        if isinstance(journal_obj, dict):
+            journal_name = journal_obj.get("name")
+
+        # Citation velocity - S2 doesn't provide this directly in Graph API v1
+        # Compute age-normalized velocity client-side in AcademicImpact metrics.
+        # Leave as None here; could be populated from S2 Recommendations API later.
+        citation_velocity = data.get("citationVelocity")
+        if citation_velocity is not None:
+            try:
+                citation_velocity = int(citation_velocity)
+            except (ValueError, TypeError):
+                citation_velocity = None
+
         return cls(
             paper_id=str(data.get("paperId", "")),
             corpus_id=data.get("corpusId"),
@@ -75,6 +117,12 @@ class S2Paper:
             fields_of_study=fos,
             external_ids=ext_ids,
             authors=authors,
+            # Enhanced fields
+            tldr=tldr_text,
+            publication_types=pub_types,
+            publication_date=pub_date,
+            journal_name=journal_name,
+            citation_velocity=citation_velocity,
         )
 
 
@@ -197,7 +245,8 @@ class SemanticScholarClient:
         "paperId,corpusId,externalIds,url,title,abstract,"
         "venue,year,referenceCount,citationCount,influentialCitationCount,"
         "isOpenAccess,openAccessPdf,fieldsOfStudy,s2FieldsOfStudy,"
-        "publicationVenue,publicationTypes,publicationDate,journal,authors"
+        "publicationVenue,publicationTypes,publicationDate,journal,authors,"
+        "tldr"
     )
 
     async def get_paper(
