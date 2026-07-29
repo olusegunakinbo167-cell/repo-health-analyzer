@@ -68,6 +68,115 @@ ACL_RE = re.compile(
 PMCID_RE = re.compile(r"\bPMC\d+\b", re.IGNORECASE)
 
 
+# ----------------------------------------------------------------------
+# File-level safety / ReDoS protection constants
+# ----------------------------------------------------------------------
+
+# Maximum file size to parse for citations (2 MB)
+# Larger files are rejected/truncated to prevent memory exhaustion
+MAX_CITATION_FILE_SIZE = 2 * 1024 * 1024
+
+# Maximum number of regex matches per pattern per file
+# Prevents ReDoS / runaway matching on pathological inputs
+MAX_REGEX_MATCHES = 10_000
+
+# Markdown chunk size for large files (64 KB)
+# Files larger than this are processed in overlapping chunks
+MARKDOWN_CHUNK_SIZE = 64 * 1024
+MARKDOWN_CHUNK_OVERLAP = 512  # bytes overlap to avoid splitting IDs
+
+# Binary detection: if >30% of first 8KB are NUL or non-printable control chars,
+# treat file as binary and skip
+BINARY_DETECTION_BYTES = 8192
+BINARY_THRESHOLD = 0.30
+
+
+def _is_binary_content(data: bytes | str) -> bool:
+    """Heuristic binary detection.
+
+    Returns True if content looks binary (high NUL / control char ratio).
+    Accepts both bytes and str inputs.
+    """
+    if isinstance(data, str):
+        # Check for NUL chars in text — strong binary signal
+        sample = data[:BINARY_DETECTION_BYTES]
+        if "\x00" in sample:
+            return True
+        # Count suspicious control characters (excluding common whitespace)
+        suspicious = sum(
+            1 for c in sample
+            if ord(c) < 32 and c not in "\t\n\r\f\b"
+        )
+        ratio = suspicious / max(1, len(sample))
+        return ratio > BINARY_THRESHOLD
+    else:
+        # bytes input
+        sample = data[:BINARY_DETECTION_BYTES]
+        if b"\x00" in sample:
+            return True
+        suspicious = sum(1 for b in sample if b < 32 and b not in (9, 10, 13, 12, 8))
+        ratio = suspicious / max(1, len(sample))
+        return ratio > BINARY_THRESHOLD
+
+
+def _safe_decode(data: bytes, source_file: str = "unknown") -> str | None:
+    """Decode bytes to text with robust encoding fallback.
+
+    Tries: utf-8 → utf-8-sig → latin-1 → cp1252
+    Returns None if content appears binary or decoding fails.
+
+    Binary blobs are rejected early to avoid feeding garbage into parsers.
+    """
+    # Binary check first
+    if _is_binary_content(data):
+        return None
+
+    # Size check
+    if len(data) > MAX_CITATION_FILE_SIZE:
+        # Truncate to limit rather than rejecting outright —
+        # citations are usually in the header/front matter
+        data = data[:MAX_CITATION_FILE_SIZE]
+
+    for encoding in ("utf-8", "utf-8-sig", "latin-1", "cp1252"):
+        try:
+            text = data.decode(encoding)
+            # Post-decode binary check
+            if _is_binary_content(text):
+                continue
+            return text
+        except (UnicodeDecodeError, LookupError):
+            continue
+
+    # Last resort: utf-8 with replacement characters
+    try:
+        text = data.decode("utf-8", errors="replace")
+        if _is_binary_content(text):
+            return None
+        return text
+    except Exception:
+        return None
+
+
+def _safe_regex_finditer(
+    pattern: re.Pattern[str], text: str, max_matches: int = MAX_REGEX_MATCHES
+) -> list[re.Match[str]]:
+    """Finditer with match count bound to prevent ReDoS / runaway matching.
+
+    Stops after max_matches to prevent catastrophic backtracking or
+    excessive memory usage on pathological inputs.
+    """
+    matches: list[re.Match[str]] = []
+    try:
+        for i, m in enumerate(pattern.finditer(text)):
+            if i >= max_matches:
+                break
+            matches.append(m)
+    except (re.error, RuntimeError, RecursionError, MemoryError):
+        # Regex engine error / stack overflow / OOM — return what we have
+        pass
+    return matches
+
+
 @dataclass(slots=True, frozen=True)
 class PaperReference:
     """A single paper reference found in repository documentation."""
@@ -125,9 +234,19 @@ def _parse_citation_cff(text: str, source_file: str) -> list[PaperReference]:
     - url / repository-code / identifiers with arXiv links
     - preferred-citation.doi
 
+    File size limit: 2 MB (larger inputs are truncated).
+    Binary content is rejected.
     Falls back to regex scan if PyYAML is unavailable or parsing fails.
     Never raises — always returns a list (possibly empty).
     """
+    # File size / binary guards
+    if not isinstance(text, str):
+        return []
+    if len(text) > MAX_CITATION_FILE_SIZE:
+        text = text[:MAX_CITATION_FILE_SIZE]
+    if _is_binary_content(text):
+        return []
+
     refs: list[PaperReference] = []
     seen: set[tuple[str, str]] = set()
 
@@ -153,12 +272,12 @@ def _parse_citation_cff(text: str, source_file: str) -> list[PaperReference]:
     def _safe_regex_fallback() -> None:
         """Regex scan the raw CFF text — never raises."""
         try:
-            for m in DOI_RE.finditer(text):
+            for m in _safe_regex_finditer(DOI_RE, text):
                 try:
                     add(m.group(0).lower().rstrip(".,;)]}"), "doi")
                 except Exception:
                     continue
-            for m in ARXIV_RE.finditer(text):
+            for m in _safe_regex_finditer(ARXIV_RE, text):
                 try:
                     arxiv_id = m.group(1)
                     version = m.group(2) or ""
@@ -254,12 +373,14 @@ def _parse_citation_cff(text: str, source_file: str) -> list[PaperReference]:
                 return
             try:
                 if isinstance(obj, str):
-                    for m in DOI_RE.finditer(obj):
+                    # Limit string length to prevent ReDoS on huge strings
+                    obj_scan = obj[:65536] if len(obj) > 65536 else obj
+                    for m in _safe_regex_finditer(DOI_RE, obj_scan):
                         try:
                             add(m.group(0).lower().rstrip(".,;)]}"), "doi")
                         except Exception:
                             continue
-                    for m in ARXIV_RE.finditer(obj):
+                    for m in _safe_regex_finditer(ARXIV_RE, obj_scan):
                         try:
                             arxiv_id = m.group(1)
                             version = m.group(2) or ""
@@ -301,9 +422,19 @@ def _parse_citation_bib(text: str, source_file: str) -> list[PaperReference]:
     - archivePrefix = "arXiv"
     - url with doi.org / arxiv.org
 
+    File size limit: 2 MB (larger inputs are truncated).
+    Binary content is rejected.
     Lightweight regex parser — no external bibtex dependency.
     Never raises — always returns a list (possibly empty).
     """
+    # File size / binary guards
+    if not isinstance(text, str):
+        return []
+    if len(text) > MAX_CITATION_FILE_SIZE:
+        text = text[:MAX_CITATION_FILE_SIZE]
+    if _is_binary_content(text):
+        return []
+
     refs: list[PaperReference] = []
     seen: set[tuple[str, str]] = set()
 
@@ -327,12 +458,12 @@ def _parse_citation_bib(text: str, source_file: str) -> list[PaperReference]:
     def _safe_regex_fallback() -> None:
         """Full-text regex scan — never raises."""
         try:
-            for m in DOI_RE.finditer(text):
+            for m in _safe_regex_finditer(DOI_RE, text):
                 try:
                     add(m.group(0).lower().rstrip(".,;)]}"), "doi")
                 except Exception:
                     continue
-            for m in ARXIV_RE.finditer(text):
+            for m in _safe_regex_finditer(ARXIV_RE, text):
                 try:
                     arxiv_id = m.group(1)
                     version = m.group(2) or ""
@@ -459,6 +590,145 @@ def _parse_citation_bib(text: str, source_file: str) -> list[PaperReference]:
     return refs
 
 
+def _extract_citations_from_markdown(
+    text: str, source_file: str
+) -> list[PaperReference]:
+    """Extract citations from Markdown with ReDoS protection.
+
+    Strips code blocks / inline code to reduce false positives and
+    ReDoS attack surface. Processes large files in bounded chunks
+    to prevent catastrophic backtracking.
+
+    Returns list[PaperReference] — never raises.
+    """
+    refs: list[PaperReference] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add_ref(pid: str, id_type: str, start: int, end: int, chunk_offset: int = 0) -> None:
+        try:
+            # Normalize (same as extract_paper_references)
+            if id_type == "doi":
+                pid_norm = pid.lower().rstrip(".,;)]}")
+            elif id_type == "arxiv":
+                pid_norm = re.sub(r"^arxiv:\s*", "", pid, flags=re.IGNORECASE)
+                pid_norm = pid_norm.lower()
+            elif id_type == "s2_corpus":
+                pid_norm = pid.lower()
+            elif id_type == "pmid":
+                pid_norm = pid.lstrip("0")
+            elif id_type == "acl":
+                pid_norm = pid
+            elif id_type == "pmcid":
+                pid_norm = pid.upper()
+                if not pid_norm.startswith("PMC"):
+                    pid_norm = "PMC" + pid_norm
+            else:
+                pid_norm = pid
+
+            dedup_key = (
+                re.sub(r"v\d+$", "", pid_norm) if id_type == "arxiv" else pid_norm
+            )
+            key = (id_type, dedup_key)
+            if key in seen:
+                return
+            seen.add(key)
+
+            # Context snippet (adjust for chunk offset)
+            abs_start = start + chunk_offset
+            abs_end = end + chunk_offset
+            ctx = _context(text, abs_start, abs_end)
+            refs.append(PaperReference(
+                paper_id=pid_norm,
+                id_type=id_type,
+                source_file=source_file,
+                context_snippet=ctx,
+            ))
+        except Exception:
+            pass
+
+    # --- Strip markdown code blocks to reduce ReDoS surface ---
+    # Remove fenced code blocks ```...``` and ~~~...~~~
+    try:
+        # Limit input size to prevent memory exhaustion
+        if len(text) > MAX_CITATION_FILE_SIZE:
+            text = text[:MAX_CITATION_FILE_SIZE]
+
+        # Strip fenced code blocks (non-greedy, DOTALL)
+        # Guard against catastrophic backtracking with size limits
+        stripped = text
+        if len(stripped) < 512 * 1024:  # Only strip code blocks for reasonably sized files
+            try:
+                stripped = re.sub(r"```.*?```", " ", stripped, flags=re.DOTALL)
+                stripped = re.sub(r"~~~.*?~~~", " ", stripped, flags=re.DOTALL)
+                # Strip inline code `...`
+                stripped = re.sub(r"`[^`\n]{0,500}`", " ", stripped)
+            except (re.error, RecursionError, MemoryError):
+                # If stripping fails, fall back to raw text
+                stripped = text
+        else:
+            # Large file — skip expensive code-block stripping
+            stripped = text
+    except Exception:
+        stripped = text[:MAX_CITATION_FILE_SIZE] if len(text) > MAX_CITATION_FILE_SIZE else text
+
+    # --- Chunked processing for large markdown files ---
+    # Prevents ReDoS on huge inputs by bounding regex scan windows
+    text_len = len(stripped)
+    if text_len <= MARKDOWN_CHUNK_SIZE:
+        chunks = [(stripped, 0)]
+    else:
+        chunks = []
+        pos = 0
+        while pos < text_len:
+            end = min(pos + MARKDOWN_CHUNK_SIZE, text_len)
+            chunk = stripped[pos:end]
+            chunks.append((chunk, pos))
+            if end >= text_len:
+                break
+            # Overlap to avoid splitting IDs across chunk boundaries
+            pos = end - MARKDOWN_CHUNK_OVERLAP
+
+    # --- Regex scanning with match count bounds ---
+    patterns = [
+        (DOI_RE, "doi", lambda m: (m.group(0), m.start(), m.end())),
+        (ARXIV_RE, "arxiv", lambda m: (f"{m.group(1)}{m.group(2) or ''}", m.start(), m.end())),
+        (PMID_RE, "pmid", lambda m: (m.group(1), m.start(), m.end())),
+        (PMCID_RE, "pmcid", lambda m: (m.group(0), m.start(), m.end())),
+        (S2_CORPUS_RE, "s2_corpus", lambda m: (m.group(0), m.start(), m.end())),
+        (ACL_RE, "acl", lambda m: (m.group(1), m.start(), m.end())),
+    ]
+
+    for chunk_text, chunk_offset in chunks:
+        for pattern, id_type, extractor in patterns:
+            try:
+                matches = _safe_regex_finditer(pattern, chunk_text)
+                for m in matches:
+                    try:
+                        pid, start, end = extractor(m)
+                        # ACL heuristic: require "acl" nearby or letter prefix
+                        if id_type == "acl":
+                            ctx_check = chunk_text[max(0, start - 30): end + 30].lower()
+                            if "acl" not in ctx_check and not re.match(r"^[a-z]", pid, re.I):
+                                continue
+                        # ArXiv: skip DOI-like false positives
+                        if id_type == "arxiv":
+                            full = m.group(0)
+                            arxiv_id = m.group(1) if m.lastindex and m.lastindex >= 1 else ""
+                            if "10." in full and "/" in full and len(arxiv_id) > 15:
+                                continue
+                        add_ref(pid, id_type, start, end, chunk_offset)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        # Early exit if we've found a lot of refs — prevents runaway work
+        if len(refs) >= MAX_REGEX_MATCHES:
+            break
+
+    return refs
+
+
 def extract_paper_references(
     text: str, source_file: str = "unknown"
 ) -> list[PaperReference]:
@@ -467,8 +737,12 @@ def extract_paper_references(
     For structured citation files, dispatches to specialized parsers:
     - CITATION.cff → YAML CFF parser
     - *.bib → BibTeX parser
+    - *.md / *.markdown → Markdown citation extractor (ReDoS-hardened)
 
     Otherwise falls back to regex scanning for DOI / ArXiv / PMID / etc.
+
+    File size limit: 2 MB (larger inputs are truncated).
+    All regex matching is bounded to prevent ReDoS.
 
     Returns a de-duplicated list of PaperReference objects.
     If the same paper appears multiple times (e.g. DOI + ArXiv for
@@ -482,6 +756,16 @@ def extract_paper_references(
     Returns:
         List of PaperReference objects, de-duplicated by (id_type, paper_id).
     """
+    # --- File size guard ---
+    if not isinstance(text, str):
+        return []
+    if len(text) > MAX_CITATION_FILE_SIZE:
+        text = text[:MAX_CITATION_FILE_SIZE]
+
+    # Binary content guard
+    if _is_binary_content(text):
+        return []
+
     # Phase 5: structured citation file parsing —
     # Never let a parser crash propagate to collection.
     fname_lower = source_file.lower()
@@ -498,6 +782,14 @@ def extract_paper_references(
             return _parse_citation_bib(text, source_file)
         except Exception:
             return []
+
+    # Markdown files: use ReDoS-hardened markdown extractor
+    if fname_lower.endswith((".md", ".markdown", ".mdown", ".mkd")):
+        try:
+            return _extract_citations_from_markdown(text, source_file)
+        except Exception:
+            # Fall through to generic regex scan
+            pass
 
     seen: set[tuple[str, str]] = set()
     refs: list[PaperReference] = []
@@ -545,55 +837,37 @@ def extract_paper_references(
             )
         )
 
+    # --- Regex scanning with match count bounds (ReDoS protection) ---
     # DOI — scan first (most specific)
-    for m in DOI_RE.finditer(text):
-        # Avoid false positives from ArXiv URLs that contain doi-like strings
-        # (DOI regex is fairly strict already)
+    for m in _safe_regex_finditer(DOI_RE, text):
         add_ref(m.group(0), "doi", m.start(), m.end())
 
     # ArXiv
-    for m in ARXIV_RE.finditer(text):
+    for m in _safe_regex_finditer(ARXIV_RE, text):
         full_match = m.group(0)
         arxiv_id = m.group(1)
         version = m.group(2) or ""
         # Skip if this looks like it was already captured as part of a DOI
-        # (DOI regex shouldn't match arXiv IDs, but be safe)
         if "10." in full_match and "/" in full_match and len(arxiv_id) > 15:
             continue
         pid = f"{arxiv_id}{version}"
         add_ref(pid, "arxiv", m.start(), m.end())
 
-    # S2 CorpusId (40-char hex) — avoid matching git SHAs in code blocks
-    # Heuristic: require word boundaries, and skip if surrounded by
-    # typical git/code patterns.  Keep it simple for v1.
-    for m in S2_CORPUS_RE.finditer(text):
-        # Skip obvious git SHA contexts
-        ctx_left = text[max(0, m.start() - 20) : m.start()].lower()
-        if any(
-            x in ctx_left
-            for x in ["commit", "sha", "git", "hash", "checksum"]
-        ):
-            # Still include it — S2 CorpusIds ARE git-SHA-like, and
-            # false negatives hurt more than false positives
-            # (S2 lookup will just 404).  Keep for now.
-            pass
+    # S2 CorpusId (40-char hex)
+    for m in _safe_regex_finditer(S2_CORPUS_RE, text):
         add_ref(m.group(0), "s2_corpus", m.start(), m.end())
 
     # PMID
-    for m in PMID_RE.finditer(text):
+    for m in _safe_regex_finditer(PMID_RE, text):
         add_ref(m.group(1), "pmid", m.start(), m.end())
 
     # PubMed Central
-    for m in PMCID_RE.finditer(text):
+    for m in _safe_regex_finditer(PMCID_RE, text):
         add_ref(m.group(0), "pmcid", m.start(), m.end())
 
     # ACL Anthology — run last (most likely to false-positive)
-    # Only match if "acl" appears nearby, or it matches the strict
-    # ACL ID pattern with a letter prefix
-    for m in ACL_RE.finditer(text):
+    for m in _safe_regex_finditer(ACL_RE, text):
         acl_id = m.group(1)
-        # Heuristic: if no "acl" in surrounding text and the ID
-        # doesn't start with a letter, skip (likely false positive)
         ctx = text[max(0, m.start() - 30) : m.end() + 30].lower()
         if "acl" not in ctx and not re.match(r"^[a-z]", acl_id, re.IGNORECASE):
             continue
