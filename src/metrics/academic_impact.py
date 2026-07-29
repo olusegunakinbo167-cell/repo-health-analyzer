@@ -125,53 +125,119 @@ def _parse_citation_cff(text: str, source_file: str) -> list[PaperReference]:
     - url / repository-code / identifiers with arXiv links
     - preferred-citation.doi
 
-    Falls back to regex scan if PyYAML is unavailable.
+    Falls back to regex scan if PyYAML is unavailable or parsing fails.
+    Never raises — always returns a list (possibly empty).
     """
     refs: list[PaperReference] = []
     seen: set[tuple[str, str]] = set()
 
     def add(pid: str, id_type: str) -> None:
-        key = (id_type, pid.lower())
-        if key in seen:
+        # Defensive: ensure pid is a non-empty string
+        if not isinstance(pid, str) or not pid:
             return
-        seen.add(key)
-        refs.append(PaperReference(
-            paper_id=pid,
-            id_type=id_type,
-            source_file=source_file,
-            context_snippet="CITATION.cff",
-        ))
+        try:
+            key = (id_type, pid.lower())
+            if key in seen:
+                return
+            seen.add(key)
+            refs.append(PaperReference(
+                paper_id=pid,
+                id_type=id_type,
+                source_file=source_file,
+                context_snippet="CITATION.cff",
+            ))
+        except Exception:
+            # Never let a bad add() crash the parser
+            pass
+
+    def _safe_regex_fallback() -> None:
+        """Regex scan the raw CFF text — never raises."""
+        try:
+            for m in DOI_RE.finditer(text):
+                try:
+                    add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+                except Exception:
+                    continue
+            for m in ARXIV_RE.finditer(text):
+                try:
+                    arxiv_id = m.group(1)
+                    version = m.group(2) or ""
+                    add(f"{arxiv_id}{version}".lower(), "arxiv")
+                except Exception:
+                    continue
+        except Exception:
+            # re.error or other regex failure — return what we have
+            pass
 
     # Try YAML parse first
+    yaml_data_parsed = False
     try:
         import yaml  # type: ignore
+    except ImportError:
+        # PyYAML unavailable — fall back to regex immediately
+        _safe_regex_fallback()
+        return refs
+
+    # --- YAML loading: trap scanner / parser errors explicitly ---
+    try:
         data = yaml.safe_load(text)
-        if isinstance(data, dict):
-            # Top-level DOI
+    except Exception as e:
+        # Catch all YAML errors explicitly:
+        # yaml.YAMLError, yaml.scanner.ScannerError,
+        # yaml.parser.ParserError, yaml.composer.ComposerError,
+        # yaml.constructor.ConstructorError, etc.
+        # Fall back to regex scan
+        _safe_regex_fallback()
+        return refs
+
+    # --- Validate top-level type ---
+    # CFF files must be a mapping at the top level.
+    # If we got a list / scalar / None, treat as malformed and fall back.
+    if not isinstance(data, dict):
+        _safe_regex_fallback()
+        return refs
+
+    # --- Structured extraction with per-field guards ---
+    try:
+        # Top-level DOI
+        try:
             doi = data.get("doi")
-            if isinstance(doi, str) and DOI_RE.search(doi):
+            if isinstance(doi, str):
                 m = DOI_RE.search(doi)
                 if m:
                     add(m.group(0).lower().rstrip(".,;)]}"), "doi")
-            # identifiers list
+        except Exception:
+            pass
+
+        # identifiers list
+        try:
             identifiers = data.get("identifiers", [])
             if isinstance(identifiers, list):
                 for ident in identifiers:
-                    if not isinstance(ident, dict):
+                    try:
+                        if not isinstance(ident, dict):
+                            continue
+                        itype_raw = ident.get("type", "")
+                        ival_raw = ident.get("value", "")
+                        itype = str(itype_raw).lower() if itype_raw is not None else ""
+                        ival = str(ival_raw) if ival_raw is not None else ""
+                        if itype == "doi" and ival:
+                            m = DOI_RE.search(ival)
+                            if m:
+                                add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+                        elif itype in ("arxiv", "other") and ival:
+                            m = ARXIV_RE.search(ival)
+                            if m:
+                                arxiv_id = m.group(1)
+                                version = m.group(2) or ""
+                                add(f"{arxiv_id}{version}".lower(), "arxiv")
+                    except Exception:
                         continue
-                    itype = str(ident.get("type", "")).lower()
-                    ival = str(ident.get("value", ""))
-                    if itype == "doi" and ival:
-                        m = DOI_RE.search(ival)
-                        if m:
-                            add(m.group(0).lower().rstrip(".,;)]}"), "doi")
-                    elif itype in ("arxiv", "other") and ival:
-                        m = ARXIV_RE.search(ival)
-                        if m:
-                            arxiv_id = m.group(1)
-                            version = m.group(2) or ""
-                            add(f"{arxiv_id}{version}".lower(), "arxiv")
-            # preferred-citation
+        except Exception:
+            pass
+
+        # preferred-citation
+        try:
             pc = data.get("preferred-citation")
             if isinstance(pc, dict):
                 pc_doi = pc.get("doi")
@@ -179,35 +245,49 @@ def _parse_citation_cff(text: str, source_file: str) -> list[PaperReference]:
                     m = DOI_RE.search(pc_doi)
                     if m:
                         add(m.group(0).lower().rstrip(".,;)]}"), "doi")
-            # Scan all string values for DOI/arXiv as fallback
-            def scan_obj(obj: Any, depth: int = 0) -> None:
-                if depth > 5:
-                    return
+        except Exception:
+            pass
+
+        # Scan all string values for DOI/arXiv as fallback
+        def scan_obj(obj: Any, depth: int = 0) -> None:
+            if depth > 8:  # prevent runaway recursion
+                return
+            try:
                 if isinstance(obj, str):
                     for m in DOI_RE.finditer(obj):
-                        add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+                        try:
+                            add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+                        except Exception:
+                            continue
                     for m in ARXIV_RE.finditer(obj):
-                        arxiv_id = m.group(1)
-                        version = m.group(2) or ""
-                        add(f"{arxiv_id}{version}".lower(), "arxiv")
+                        try:
+                            arxiv_id = m.group(1)
+                            version = m.group(2) or ""
+                            add(f"{arxiv_id}{version}".lower(), "arxiv")
+                        except Exception:
+                            continue
                 elif isinstance(obj, dict):
                     for v in obj.values():
                         scan_obj(v, depth + 1)
                 elif isinstance(obj, list):
                     for v in obj:
                         scan_obj(v, depth + 1)
-            scan_obj(data)
-            return refs
+            except Exception:
+                # Never let scan_obj crash the parser
+                pass
+
+        scan_obj(data)
+        yaml_data_parsed = True
     except Exception:
+        # Any unexpected error during structured extraction —
+        # fall back to regex
         pass
 
-    # Fallback: regex scan the raw CFF text
-    for m in DOI_RE.finditer(text):
-        add(m.group(0).lower().rstrip(".,;)]}"), "doi")
-    for m in ARXIV_RE.finditer(text):
-        arxiv_id = m.group(1)
-        version = m.group(2) or ""
-        add(f"{arxiv_id}{version}".lower(), "arxiv")
+    # If YAML parsing succeeded but found nothing, or if it failed
+    # partway, always run the regex fallback to catch anything missed
+    if not yaml_data_parsed or not refs:
+        _safe_regex_fallback()
+
     return refs
 
 
@@ -222,70 +302,159 @@ def _parse_citation_bib(text: str, source_file: str) -> list[PaperReference]:
     - url with doi.org / arxiv.org
 
     Lightweight regex parser — no external bibtex dependency.
+    Never raises — always returns a list (possibly empty).
     """
     refs: list[PaperReference] = []
     seen: set[tuple[str, str]] = set()
 
     def add(pid: str, id_type: str) -> None:
-        key = (id_type, pid.lower())
-        if key in seen:
+        if not isinstance(pid, str) or not pid:
             return
-        seen.add(key)
-        refs.append(PaperReference(
-            paper_id=pid,
-            id_type=id_type,
-            source_file=source_file,
-            context_snippet="CITATION.bib",
-        ))
+        try:
+            key = (id_type, pid.lower())
+            if key in seen:
+                return
+            seen.add(key)
+            refs.append(PaperReference(
+                paper_id=pid,
+                id_type=id_type,
+                source_file=source_file,
+                context_snippet="CITATION.bib",
+            ))
+        except Exception:
+            pass
 
-    # Find all @type{...} entries (naive, handles nested braces shallowly)
-    # Split by @ to get entries
-    entries = re.split(r"@\w+\s*\{", text)
-    for entry in entries[1:]:  # skip preamble
-        # Extract doi field
-        for m in re.finditer(r"doi\s*=\s*[\"\{]\s*([^\"\},]+)\s*[\"\}]", entry, re.IGNORECASE):
-            doi_val = m.group(1).strip()
-            dm = DOI_RE.search(doi_val)
-            if dm:
-                add(dm.group(0).lower().rstrip(".,;)]}"), "doi")
-        # Extract eprint / archivePrefix (arXiv)
-        eprint_m = re.search(r"eprint\s*=\s*[\"\{]\s*([^\"\},]+)\s*[\"\}]", entry, re.IGNORECASE)
-        archive_m = re.search(r"archiveprefix\s*=\s*[\"\{]\s*([^\"\},]+)\s*[\"\}]", entry, re.IGNORECASE)
-        if eprint_m:
-            eprint_val = eprint_m.group(1).strip()
-            # If archivePrefix is arXiv, treat eprint as arXiv ID
-            is_arxiv = archive_m and "arxiv" in archive_m.group(1).lower()
-            # Also try to match arXiv ID pattern directly
-            am = ARXIV_RE.search(eprint_val)
-            if am or is_arxiv:
-                if am:
-                    arxiv_id = am.group(1)
-                    version = am.group(2) or ""
+    def _safe_regex_fallback() -> None:
+        """Full-text regex scan — never raises."""
+        try:
+            for m in DOI_RE.finditer(text):
+                try:
+                    add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+                except Exception:
+                    continue
+            for m in ARXIV_RE.finditer(text):
+                try:
+                    arxiv_id = m.group(1)
+                    version = m.group(2) or ""
                     add(f"{arxiv_id}{version}".lower(), "arxiv")
-                else:
-                    # Bare arXiv ID in eprint field
-                    ev = eprint_val.strip()
-                    if re.match(r"^\d{4}\.\d{4,5}(v\d+)?$", ev) or re.match(r"^[a-z\-]+(?:\.[a-z\-]+)?/\d{7}(v\d+)?$", ev, re.I):
-                        add(ev.lower(), "arxiv")
-        # Extract URL field – may contain doi.org / arxiv.org links
-        for m in re.finditer(r"url\s*=\s*[\"\{]\s*([^\"\}]+)\s*[\"\}]", entry, re.IGNORECASE):
-            url_val = m.group(1)
-            dm = DOI_RE.search(url_val)
-            if dm:
-                add(dm.group(0).lower().rstrip(".,;)]}"), "doi")
-            am = ARXIV_RE.search(url_val)
-            if am:
-                arxiv_id = am.group(1)
-                version = am.group(2) or ""
-                add(f"{arxiv_id}{version}".lower(), "arxiv")
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    # --- Per-entry parsing with isolated error handling ---
+    try:
+        entries = re.split(r"@\w+\s*\{", text)
+    except re.error:
+        # Regex split failed — fall back to full-text scan
+        _safe_regex_fallback()
+        return refs
+
+    for entry in entries[1:]:  # skip preamble
+        try:
+            # Extract doi field
+            try:
+                for m in re.finditer(
+                    r"doi\s*=\s*[\"\{]\s*([^\"\},]+)\s*[\"\}]",
+                    entry,
+                    re.IGNORECASE,
+                ):
+                    try:
+                        doi_val = m.group(1).strip()
+                        dm = DOI_RE.search(doi_val)
+                        if dm:
+                            add(dm.group(0).lower().rstrip(".,;)]}"), "doi")
+                    except Exception:
+                        continue
+            except re.error:
+                pass
+
+            # Extract eprint / archivePrefix (arXiv)
+            eprint_m = None
+            archive_m = None
+            try:
+                eprint_m = re.search(
+                    r"eprint\s*=\s*[\"\{]\s*([^\"\},]+)\s*[\"\}]",
+                    entry,
+                    re.IGNORECASE,
+                )
+                archive_m = re.search(
+                    r"archiveprefix\s*=\s*[\"\{]\s*([^\"\},]+)\s*[\"\}]",
+                    entry,
+                    re.IGNORECASE,
+                )
+            except re.error:
+                pass
+
+            if eprint_m:
+                try:
+                    eprint_val = eprint_m.group(1).strip()
+                    is_arxiv = False
+                    try:
+                        is_arxiv = bool(
+                            archive_m and "arxiv" in archive_m.group(1).lower()
+                        )
+                    except Exception:
+                        pass
+
+                    am = None
+                    try:
+                        am = ARXIV_RE.search(eprint_val)
+                    except Exception:
+                        pass
+
+                    if am or is_arxiv:
+                        if am:
+                            try:
+                                arxiv_id = am.group(1)
+                                version = am.group(2) or ""
+                                add(f"{arxiv_id}{version}".lower(), "arxiv")
+                            except Exception:
+                                pass
+                        else:
+                            # Bare arXiv ID in eprint field
+                            try:
+                                ev = eprint_val.strip()
+                                if re.match(
+                                    r"^\d{4}\.\d{4,5}(v\d+)?$", ev
+                                ) or re.match(
+                                    r"^[a-z\-]+(?:\.[a-z\-]+)?/\d{7}(v\d+)?$",
+                                    ev,
+                                    re.I,
+                                ):
+                                    add(ev.lower(), "arxiv")
+                            except re.error:
+                                pass
+                except Exception:
+                    pass
+
+            # Extract URL field – may contain doi.org / arxiv.org links
+            try:
+                for m in re.finditer(
+                    r"url\s*=\s*[\"\{]\s*([^\"\}]+)\s*[\"\}]",
+                    entry,
+                    re.IGNORECASE,
+                ):
+                    try:
+                        url_val = m.group(1)
+                        dm = DOI_RE.search(url_val)
+                        if dm:
+                            add(dm.group(0).lower().rstrip(".,;)]}"), "doi")
+                        am = ARXIV_RE.search(url_val)
+                        if am:
+                            arxiv_id = am.group(1)
+                            version = am.group(2) or ""
+                            add(f"{arxiv_id}{version}".lower(), "arxiv")
+                    except Exception:
+                        continue
+            except re.error:
+                pass
+        except Exception:
+            # One malformed BibTeX entry must never kill the whole parse
+            continue
 
     # Fallback: full-text regex scan for any missed DOIs/arXiv IDs
-    for m in DOI_RE.finditer(text):
-        add(m.group(0).lower().rstrip(".,;)]}"), "doi")
-    for m in ARXIV_RE.finditer(text):
-        arxiv_id = m.group(1)
-        version = m.group(2) or ""
-        add(f"{arxiv_id}{version}".lower(), "arxiv")
+    _safe_regex_fallback()
 
     return refs
 
@@ -313,12 +482,22 @@ def extract_paper_references(
     Returns:
         List of PaperReference objects, de-duplicated by (id_type, paper_id).
     """
-    # Phase 5: structured citation file parsing
+    # Phase 5: structured citation file parsing —
+    # Never let a parser crash propagate to collection.
     fname_lower = source_file.lower()
     if fname_lower.endswith(".cff") or "citation.cff" in fname_lower:
-        return _parse_citation_cff(text, source_file)
+        try:
+            return _parse_citation_cff(text, source_file)
+        except Exception:
+            # Hardened parsers should never raise, but belt-and-suspenders:
+            # if _parse_citation_cff crashes, return empty refs rather
+            # than killing repo collection.
+            return []
     if fname_lower.endswith(".bib"):
-        return _parse_citation_bib(text, source_file)
+        try:
+            return _parse_citation_bib(text, source_file)
+        except Exception:
+            return []
 
     seen: set[tuple[str, str]] = set()
     refs: list[PaperReference] = []
