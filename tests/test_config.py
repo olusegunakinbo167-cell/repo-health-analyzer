@@ -31,7 +31,7 @@ def make_metrics(**overrides) -> RepoMetrics:
 
 def test_repo_config_defaults() -> None:
     cfg = RepoConfig()
-    assert cfg.weights["documentation"] == 25.0
+    assert cfg.weights["documentation"] == 20.0
     assert cfg.total_weight == 100.0
     assert cfg.is_ignored("missing_readme") is False
 
@@ -101,7 +101,7 @@ def test_scorer_respects_ignore_rules() -> None:
         }
     )
     score_ignored = score_documentation(metrics, cfg)
-    assert score_ignored.score == 25.0
+    assert score_ignored.score == 20.0
     assert score_ignored.penalties == []
 
 
