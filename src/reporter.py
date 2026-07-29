@@ -1,4 +1,3 @@
-# reporter.py
 """Report formatters for health scores.
 
 Note: Markdown export has moved to src/exporters/markdown_exporter.py.
@@ -87,12 +86,13 @@ def render_rich(
     table.add_column("Status", justify="center", width=8)
     table.add_column("Issues", width=50 if has_baseline else 60)
 
-    cat_keys = ("documentation", "maintenance", "ci_cd", "governance")
+    cat_keys = ("documentation", "maintenance", "ci_cd", "governance", "academic_impact")
     cat_objs = (
         health.documentation,
         health.maintenance,
         health.ci_cd,
         health.governance,
+        health.academic_impact,
     )
 
     for key, cat in zip(cat_keys, cat_objs, strict=False):
