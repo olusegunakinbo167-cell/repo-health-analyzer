@@ -281,3 +281,63 @@ class BaselineDiff:
             baseline_timestamp=baseline_timestamp,
             categories=cats,
         )
+
+
+# ----------------------------------------------------------------------
+# Organization batch analysis models
+# ----------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class OrgRepoInfo:
+    """Repository metadata from org/user repo listing."""
+
+    full_name: str
+    name: str
+    description: str | None
+    stars: int
+    language: str | None
+    fork: bool
+    archived: bool
+    default_branch: str
+    html_url: str
+
+
+@dataclass(slots=True)
+class OrgRepoScore:
+    """Repository score summary for org-level reporting."""
+
+    full_name: str
+    score: float
+    grade: str
+    stars: int
+    language: str | None
+
+
+@dataclass(slots=True)
+class OrgHealthSummary:
+    """Aggregated health summary for an entire organization or user."""
+
+    org: str
+    total_repos: int
+    analyzed_repos: int
+    failed_repos: int
+    avg_score: float
+    median_score: float
+    score_distribution: dict[str, int]
+    top_repos: list[OrgRepoScore]
+    bottom_repos: list[OrgRepoScore]
+    category_averages: dict[str, float]
+    missing_files_stats: dict[str, int]
+    ci_adoption_rate: float
+    total_stars: int
+    timestamp: str
+
+
+@dataclass(slots=True)
+class OrgAnalysisResult:
+    """Full result of an organization-wide batch analysis."""
+
+    org: str
+    repos: list[tuple[RepoMetrics, HealthScore]]
+    failed: list[tuple[str, str]]
