@@ -7,6 +7,7 @@ them via Semantic Scholar, and aggregates citation metrics.
 
 from __future__ import annotations
 
+import datetime
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -295,6 +296,91 @@ class AcademicImpact:
             if p.s2
         )
 
+    # --- Phase 2: Enhanced impact metrics ---
+
+    @property
+    def influential_ratio(self) -> float:
+        """Ratio of influential citations to total citations (0.0–1.0).
+
+        Influential citations are those S2 has classified as significantly
+        influencing the citing paper (not just a passing mention).
+        """
+        total = self.total_citations
+        if total == 0:
+            return 0.0
+        return self.total_influential_citations / total
+
+    def _paper_age_years(self, paper: S2Paper, current_year: int | None = None) -> int:
+        """Age of a paper in years, minimum 1."""
+        if current_year is None:
+            current_year = datetime.datetime.now().year
+        if paper.year is None:
+            return 1
+        age = max(1, current_year - paper.year + 1)
+        return age
+
+    @property
+    def citation_velocity_per_year(self) -> float:
+        """Average citations per paper per year (age-normalized impact).
+
+        Computes total_citations / sum(paper_age_years) across all resolved papers.
+        This prevents old papers from dominating purely on cumulative citations.
+        """
+        resolved = [p.s2 for p in self.papers_referenced if p.s2]
+        if not resolved:
+            return 0.0
+        current_year = datetime.datetime.now().year
+        total_age_years = sum(
+            self._paper_age_years(p, current_year) for p in resolved
+        )
+        if total_age_years == 0:
+            return 0.0
+        return self.total_citations / total_age_years
+
+    @property
+    def avg_citation_velocity(self) -> float:
+        """Mean per-paper citation velocity (citations/year)."""
+        resolved = [p.s2 for p in self.papers_referenced if p.s2]
+        if not resolved:
+            return 0.0
+        current_year = datetime.datetime.now().year
+        velocities = [
+            p.citation_count / self._paper_age_years(p, current_year)
+            for p in resolved
+        ]
+        return sum(velocities) / len(velocities) if velocities else 0.0
+
+    @property
+    def h_index(self) -> int:
+        """h-index across all referenced papers.
+
+        The h-index is the largest h such that h papers have at least h citations.
+        Standard scholarly impact metric.
+        """
+        citations = sorted(
+            (p.s2.citation_count for p in self.papers_referenced if p.s2),
+            reverse=True,
+        )
+        h = 0
+        for i, c in enumerate(citations, start=1):
+            if c >= i:
+                h = i
+            else:
+                break
+        return h
+
+    def citation_velocity_distribution(self) -> list[float]:
+        """Per-paper citation velocity list, sorted descending."""
+        resolved = [p.s2 for p in self.papers_referenced if p.s2]
+        current_year = datetime.datetime.now().year
+        velocities = [
+            p.citation_count / self._paper_age_years(p, current_year)
+            for p in resolved
+        ]
+        return sorted(velocities, reverse=True)
+
+    # --- Existing metrics (unchanged) ---
+
     @property
     def avg_citations_per_paper(self) -> float:
         n = self.resolved_count
@@ -332,8 +418,6 @@ class AcademicImpact:
     def recent_papers_count(self, years: int = 3, current_year: int | None = None) -> int:
         """Count papers published within the last N years."""
         if current_year is None:
-            import datetime
-
             current_year = datetime.datetime.now().year
         cutoff = current_year - years
         return sum(
@@ -341,6 +425,81 @@ class AcademicImpact:
             for p in self.papers_referenced
             if p.s2 and p.s2.year is not None and p.s2.year >= cutoff
         )
+
+    # --- Phase 2: Additional aggregated signals ---
+
+    @property
+    def venue_prestige_score(self) -> float:
+        """Average venue quality score across resolved papers (0.0–1.0).
+
+        Weights publicationTypes:
+        - JournalArticle / Review / CaseReport → 1.0
+        - Conference → 0.7
+        - Dataset / Editorial / Letter → 0.4
+        - Preprint / unknown → 0.2
+        If journal_name is present, boost slightly.
+        """
+        resolved = [p.s2 for p in self.papers_referenced if p.s2]
+        if not resolved:
+            return 0.0
+
+        scores: list[float] = []
+        for p in resolved:
+            pub_types = [t.lower() for t in (p.publication_types or [])]
+            score = 0.2  # default / preprint
+            if any(x in pub_types for x in ("journalarticle", "review", "casereport")):
+                score = 1.0
+            elif "conference" in pub_types:
+                score = 0.7
+            elif any(x in pub_types for x in ("dataset", "editorial", "letter")):
+                score = 0.4
+            # Boost if journal is named
+            if p.journal_name:
+                score = min(1.0, score + 0.1)
+            scores.append(score)
+
+        return sum(scores) / len(scores) if scores else 0.0
+
+    @property
+    def recency_weighted_citations(self) -> float:
+        """Total citations weighted by recency decay.
+
+        Weight = 1 / (1 + 0.15 × age_years)
+        Recent highly-cited papers contribute more than old ones.
+        """
+        resolved = [p.s2 for p in self.papers_referenced if p.s2]
+        if not resolved:
+            return 0.0
+        current_year = datetime.datetime.now().year
+        total = 0.0
+        for p in resolved:
+            age = self._paper_age_years(p, current_year) - 1
+            weight = 1.0 / (1.0 + 0.15 * age)
+            total += p.citation_count * weight
+        return total
+
+    @property
+    def impact_tier(self) -> str:
+        """Qualitative impact tier.
+
+        Tiers based on h-index and avg citation velocity:
+        - exceptional: h >= 5 and velocity >= 150
+        - high:        h >= 3 and velocity >= 50
+        - moderate:    h >= 1 and velocity >= 10
+        - low:         any resolved papers
+        - none:        no papers
+        """
+        if self.resolved_count == 0:
+            return "none"
+        h = self.h_index
+        vel = self.avg_citation_velocity
+        if h >= 5 and vel >= 150:
+            return "exceptional"
+        if h >= 3 and vel >= 50:
+            return "high"
+        if h >= 1 and vel >= 10:
+            return "moderate"
+        return "low"
 
 
 # ----------------------------------------------------------------------
