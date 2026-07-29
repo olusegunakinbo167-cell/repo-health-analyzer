@@ -179,6 +179,8 @@ async def test_s2_client_get_paper_mock() -> None:
     from unittest.mock import AsyncMock, Mock
 
     client = SemanticScholarClient(api_key="test-key")
+    # Disable cache to ensure mock is hit
+    client._cache = None
     # Mock the internal _client
     mock_resp = Mock()
     mock_resp.status_code = 200
@@ -202,6 +204,7 @@ async def test_s2_client_get_paper_mock() -> None:
 
     paper = await client.get_paper("ArXiv:1706.03762")
     assert paper.paper_id == "abc123"
+    assert paper.title == "Attention Is All You Need"
     assert paper.title == "Attention Is All You Need"
     assert paper.citation_count == 50000
     assert paper.is_open_access is True

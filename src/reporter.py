@@ -177,11 +177,50 @@ def render_rich(
         fos_str = ", ".join(academic.fields_of_study[:3])
         if len(academic.fields_of_study) > 3:
             fos_str += ", …"
+        tier = academic.impact_tier
+        tier_emoji = {
+            "exceptional": "🌟",
+            "high": "🔥",
+            "moderate": "📈",
+            "low": "📄",
+        }.get(tier, "📄")
         console.print(
-            f"  Academic: {academic.resolved_count}/{academic.paper_count} paper(s) "
-            f"resolved, {academic.total_citations} total citations"
+            f"  Academic: {tier_emoji} {tier} | {academic.resolved_count}/{academic.paper_count} papers, "
+            f"{academic.total_citations:,} citations, "
+            f"{academic.avg_citation_velocity:.1f} cites/yr, "
+            f"h-index {academic.h_index}, "
+            f"venue prestige {academic.venue_prestige_score:.2f}"
             + (f" — {fos_str}" if fos_str else "")
         )
+        # Per-paper TLDR list (top 3)
+        resolved_papers = [rp for rp in academic.papers_referenced if rp.s2 is not None]
+        if resolved_papers:
+            console.print("  [dim]  Referenced papers:[/dim]")
+            for rp in resolved_papers[:3]:
+                p = rp.s2
+                if not p:
+                    continue
+                title = p.title or "Untitled"
+                year_str = f" ({p.year})" if p.year else ""
+                cites = f"{p.citation_count:,}"
+                # Build links
+                links: list[str] = []
+                if p.external_ids:
+                    arxiv_id = p.external_ids.get("ArXiv")
+                    if arxiv_id:
+                        links.append(f"arxiv:{arxiv_id}")
+                    doi = p.external_ids.get("DOI")
+                    if doi:
+                        links.append(f"doi:{doi}")
+                link_str = f" [{' · '.join(links)}]" if links else ""
+                console.print(
+                    f"    [dim]• {title}{year_str} — {cites} cites{link_str}[/dim]"
+                )
+                if p.tldr:
+                    tldr_short = p.tldr[:140] + ("…" if len(p.tldr) > 140 else "")
+                    console.print(f"      [dim italic]{tldr_short}[/dim italic]")
+            if len(resolved_papers) > 3:
+                console.print(f"      [dim]… and {len(resolved_papers)-3} more[/dim]")
     console.print()
 
     return buf.getvalue()

@@ -36,6 +36,9 @@ repo-health-analyzer weather <command> [options]
 | `--token TOKEN` | GitHub personal access token (default: `GITHUB_TOKEN` env var) |
 | `--s2-api-key KEY` | Semantic Scholar API key for academic impact metrics (default: `S2_API_KEY` / `SEMANTIC_SCHOLAR_API_KEY` env var) |
 | `--skip-academic` | Skip academic impact / paper reference scanning (faster, no S2 API calls) |
+| `--academic-max-papers N` | Max referenced papers to include in Markdown/HTML exports (default: 20, 0 = unlimited) |
+| `--academic-no-tldr` | Exclude paper TLDRs from exports (TLDRs included by default) |
+| `--academic-include-unresolved` | Include unresolved paper references in exports (excluded by default) |
 | `--min-score N` | Quality gate threshold — exit with code 1 if health score is below N (default: 70.0) |
 | `--config PATH` | Path to local `.repo-health.yml` config file (default: auto-fetch from target repo root) |
 | `--baseline PATH` | Path to a prior artifact JSON to compare against — category score deltas are shown in terminal and Markdown output |
@@ -47,7 +50,27 @@ repo-health-analyzer weather <command> [options]
 
 ### Academic impact / paper references
 
-`repo-health-analyzer` scans repository documentation (README, `docs/`, `CITATION.*` files) for academic paper references — DOI, ArXiv, Semantic Scholar CorpusId, PMID, ACL Anthology, and PubMed Central IDs — then resolves them via the [Semantic Scholar API](https://www.semanticscholar.org/product/api) to aggregate citation counts, influential citations, fields of study, and open-access status.
+`repo-health-analyzer` scans repository documentation (README, `docs/`, `CITATION.*` files) for academic paper references — DOI, ArXiv, Semantic Scholar CorpusId, PMID, ACL Anthology, and PubMed Central IDs — then resolves them via the [Semantic Scholar API](https://www.semanticscholar.org/product/api).
+
+For each resolved paper, the following S2 metadata is collected and surfaced in exports:
+
+- **Paper title**, **authors**, **year**, **venue / journal**
+- **Citation count** and **citation velocity** (cites/yr)
+- **TLDR** (auto-generated abstract summary)
+- **Publication types** (JournalArticle, Conference, etc.)
+- **arXiv link** (`https://arxiv.org/abs/<id>`) and **DOI link** (`https://doi.org/<doi>`) when available
+- **Open-access PDF URL**
+- **Fields of study**
+
+Aggregated impact metrics:
+
+- **Total citations**, **avg citations/paper**, **avg citation velocity**
+- **h-index** across referenced papers
+- **Venue prestige score** (weighted by publication venue tier)
+- **Impact tier**: `exceptional` / `high` / `moderate` / `low` / `none`
+- **Influential citation count / ratio**
+- **Open-access ratio**
+- **Recency-weighted citations**
 
 Referenced papers contribute a 0–5 pt bonus to the Documentation category score:
 - 1–2 papers → 2 pts
@@ -55,6 +78,26 @@ Referenced papers contribute a 0–5 pt bonus to the Documentation category scor
 - 6+ papers → 5 pts
 
 High-impact papers (≥100 avg citations) and recent papers (<3 years) receive additional weighting.
+
+**Export formats:**
+
+- **JSON**: `academic_impact` object includes all computed scores (`citation_velocity_per_year`, `venue_prestige_score`, `impact_tier`, `h_index`, etc.) and per-paper S2 metadata (`tldr`, `publication_types`, `arxiv_url`, `doi_url`, `citation_velocity`).
+- **Markdown**: Dedicated "📚 Academic Impact" section with impact tier, citation velocity, venue prestige, h-index, and a collapsible "📖 Referenced Papers" list with TLDRs, arXiv/DOI links, and per-paper citation velocity.
+- **HTML**: Full academic impact card with paper list, TLDRs, and links.
+- **Terminal**: Rich table showing top 3 papers with TLDRs and links.
+
+**Export controls:**
+
+```bash
+# Limit papers in export (default: 20)
+repo-health-analyzer myorg/myrepo -o report.md --academic-max-papers 5
+
+# Exclude TLDRs from exports
+repo-health-analyzer myorg/myrepo -o report.json --academic-no-tldr
+
+# Include unresolved paper references in exports
+repo-health-analyzer myorg/myrepo -o report.md --academic-include-unresolved
+```
 
 An S2 API key is recommended for reliable lookups — unauthenticated requests share a global rate limit and may be throttled. Get a free key at https://www.semanticscholar.org/product/api#api-key-form, then set `S2_API_KEY` or pass `--s2-api-key`.
 

@@ -27,7 +27,7 @@ class ReportMetadata:
     repository: str
     commit_sha: str | None
     timestamp: str
-    tool_version: str = "0.2.1"
+    tool_version: str = "0.4.0"
 
 
 class Exporter(Protocol):
@@ -46,6 +46,10 @@ class Exporter(Protocol):
         metadata: ReportMetadata | None = None,
         environment_context: dict[str, Any] | None = None,
         hn_context: dict[str, Any] | None = None,
+        # Academic impact export options
+        academic_max_papers: int = 20,
+        academic_include_tldr: bool = True,
+        academic_include_unresolved: bool = False,
     ) -> str:
         """Export a health report.
 

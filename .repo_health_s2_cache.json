@@ -1,0 +1,974 @@
+{
+  "journals/corr/vaswanispujgkp17": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "13756489": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "2963403868": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "arxiv:1706.03762": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "1706.03762": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "204e3073870fae3d05bcbc2f6a8e263d9b72e776": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "ok": {
+    "timestamp": 1785341167.841173,
+    "paper": {
+      "paperId": "ok",
+      "corpusId": null,
+      "title": "OK",
+      "abstract": null,
+      "year": null,
+      "venue": null,
+      "citationCount": 0,
+      "influentialCitationCount": 0,
+      "referenceCount": 0,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [],
+      "externalIds": {},
+      "authors": [],
+      "tldr": null,
+      "publicationTypes": [],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "p1": {
+    "timestamp": 1785341167.905919,
+    "paper": {
+      "paperId": "p1",
+      "corpusId": null,
+      "title": "Paper 1",
+      "abstract": null,
+      "year": 2020,
+      "venue": null,
+      "citationCount": 10,
+      "influentialCitationCount": 1,
+      "referenceCount": 5,
+      "isOpenAccess": true,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "CS"
+      ],
+      "externalIds": {},
+      "authors": [],
+      "tldr": null,
+      "publicationTypes": [],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "p3": {
+    "timestamp": 1785341167.9088185,
+    "paper": {
+      "paperId": "p3",
+      "corpusId": null,
+      "title": "Paper 3",
+      "abstract": null,
+      "year": 2019,
+      "venue": null,
+      "citationCount": 30,
+      "influentialCitationCount": 3,
+      "referenceCount": 5,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Biology"
+      ],
+      "externalIds": {},
+      "authors": [],
+      "tldr": null,
+      "publicationTypes": [],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "acl:n19-1423": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "1810.04805": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "journals/corr/abs-1810-04805": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "n19-1423": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "10.18653/v1/n19-1423": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "doi:10.18653/v1/n19-1423": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "52967399": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "arxiv:1810.04805": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "2951055169": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "df2b0e26d0599ce3e70df8a9da02e51594e0e992": {
+    "timestamp": 1785341072.5333316,
+    "paper": {
+      "paperId": "df2b0e26d0599ce3e70df8a9da02e51594e0e992",
+      "corpusId": 52967399,
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "abstract": "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models (Peters et al., 2018a; Radford et al., 2018), BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art results on eleven natural language processing tasks, including pushing the GLUE score to 80.5 (7.7 point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5 point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1 point absolute improvement).",
+      "year": 2019,
+      "venue": "North American Chapter of the Association for Computational Linguistics",
+      "citationCount": 118551,
+      "influentialCitationCount": 22697,
+      "referenceCount": 63,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://doi.org/10.18653/v1/n19-1423"
+      },
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2951055169",
+        "ACL": "N19-1423",
+        "DBLP": "journals/corr/abs-1810-04805",
+        "ArXiv": "1810.04805",
+        "DOI": "10.18653/v1/N19-1423",
+        "CorpusId": 52967399
+      },
+      "authors": [
+        {
+          "name": "Jacob Devlin"
+        },
+        {
+          "name": "Ming-Wei Chang"
+        },
+        {
+          "name": "Kenton Lee"
+        },
+        {
+          "name": "Kristina Toutanova"
+        }
+      ],
+      "tldr": {
+        "text": "A new language representation model, BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  }
+}
