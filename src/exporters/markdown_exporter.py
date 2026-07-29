@@ -25,6 +25,10 @@ class MarkdownExporter:
         metadata: ReportMetadata | None = None,
         environment_context: dict[str, Any] | None = None,
         hn_context: dict[str, Any] | None = None,
+        # Academic impact export options
+        academic_max_papers: int = 20,
+        academic_include_tldr: bool = True,
+        academic_include_unresolved: bool = False,
     ) -> str:
         """Export a health report as Markdown.
 
@@ -41,6 +45,9 @@ class MarkdownExporter:
             metadata=metadata,
             environment_context=environment_context,
             hn_context=hn_context,
+            academic_max_papers=academic_max_papers,
+            academic_include_tldr=academic_include_tldr,
+            academic_include_unresolved=academic_include_unresolved,
         )
 
 
@@ -52,6 +59,9 @@ def _render_markdown(
     metadata: ReportMetadata | None = None,
     environment_context: dict[str, Any] | None = None,
     hn_context: dict[str, Any] | None = None,
+    academic_max_papers: int = 20,
+    academic_include_tldr: bool = True,
+    academic_include_unresolved: bool = False,
 ) -> str:
     """Render a GitHub-flavored Markdown report.
 
@@ -109,12 +119,13 @@ def _render_markdown(
         lines.append("| Category | Score | Status |")
         lines.append("|---|---:|---|")
 
-    cat_keys = ("documentation", "maintenance", "ci_cd", "governance")
+    cat_keys = ("documentation", "maintenance", "ci_cd", "governance", "academic_impact")
     cat_objs = (
         health.documentation,
         health.maintenance,
         health.ci_cd,
         health.governance,
+        health.academic_impact,
     )
 
     for key, cat in zip(cat_keys, cat_objs, strict=False):
@@ -328,6 +339,146 @@ def _render_markdown(
             lines.append(f"_HN fetch errors: {', '.join(errors)}_")
             lines.append("")
 
+    # Academic Impact — dedicated section with S2 metadata
+    academic = getattr(metrics, "academic_impact", None)
+    if academic and academic.paper_count > 0:
+        lines.append("### 📚 Academic Impact")
+        lines.append("")
+        # Impact tier badge
+        tier = academic.impact_tier
+        tier_emoji = {
+            "exceptional": "🌟",
+            "high": "🔥",
+            "moderate": "📈",
+            "low": "📄",
+            "none": "—",
+        }.get(tier, "📄")
+        lines.append(
+            f"**Impact Tier:** {tier_emoji} `{tier}`  |  "
+            f"**Papers:** {academic.resolved_count}/{academic.paper_count} resolved  |  "
+            f"**Citations:** {academic.total_citations:,}"
+        )
+        lines.append("")
+        # Impact metrics table
+        lines.append("| Metric | Value |")
+        lines.append("|---|---|")
+        lines.append(
+            f"| Citation velocity | {academic.avg_citation_velocity:.1f} cites/yr (avg) |")
+        lines.append(
+            f"| Total velocity | {academic.citation_velocity_per_year:.1f} cites/yr |")
+        lines.append(f"| h-index | {academic.h_index} |")
+        venue_score = academic.venue_prestige_score
+        venue_label = (
+            "Top-tier" if venue_score >= 0.8
+            else "Conference" if venue_score >= 0.6
+            else "Mixed" if venue_score >= 0.3
+            else "Preprint"
+        )
+        lines.append(
+            f"| Venue prestige | {venue_score:.2f} — {venue_label} |")
+        lines.append(
+            f"| Influential citations | {academic.total_influential_citations:,} "
+            f"({academic.influential_ratio:.0%}) |")
+        lines.append(
+            f"| Recency-weighted cites | {academic.recency_weighted_citations:.0f} |")
+        if academic.fields_of_study:
+            fos = ", ".join(academic.fields_of_study[:5])
+            if len(academic.fields_of_study) > 5:
+                fos += ", …"
+            lines.append(f"| Fields of study | {fos} |")
+        lines.append(
+            f"| Open-access | {academic.open_access_count}/{academic.resolved_count} "
+            f"({academic.open_access_ratio:.0%}) |")
+        recent = academic.recent_papers_count()
+        lines.append(f"| Recent papers (<3yr) | {recent} |")
+        lines.append("")
+        # Referenced papers with TLDRs
+        if academic_include_unresolved:
+            papers_to_show = academic.papers_referenced
+        else:
+            papers_to_show = [
+                rp for rp in academic.papers_referenced if rp.s2 is not None
+            ]
+        # Apply max_papers limit
+        if academic_max_papers > 0 and len(papers_to_show) > academic_max_papers:
+            papers_to_show = papers_to_show[:academic_max_papers]
+            truncated = True
+        else:
+            truncated = False
+        resolved_papers = [rp for rp in papers_to_show if rp.s2 is not None]
+        unresolved_count = sum(1 for rp in papers_to_show if rp.s2 is None)
+        if papers_to_show:
+            total_resolved = academic.resolved_count
+            summary_label = f"📖 Referenced Papers ({len(resolved_papers)} shown"
+            if unresolved_count > 0:
+                summary_label += f", {unresolved_count} unresolved"
+            if truncated:
+                summary_label += f" — {academic.paper_count - len(papers_to_show)} more not shown"
+            summary_label += ")"
+            lines.append("<details>")
+            lines.append(f"<summary><b>{summary_label}</b></summary>")
+            lines.append("")
+            for i, rp in enumerate(papers_to_show, 1):
+                p = rp.s2
+                if not p:
+                    # Unresolved paper
+                    ref = rp.reference
+                    lines.append(f"**{i}. `{ref.id_type}:{ref.paper_id}`** _(unresolved)_  ")
+                    lines.append(f"_Source: {ref.source_file}_")
+                    lines.append("")
+                    continue
+                title = p.title or "Untitled"
+                year = f" ({p.year})" if p.year else ""
+                cites = f"{p.citation_count:,}" if p.citation_count else "0"
+                # Build paper links
+                links: list[str] = []
+                if p.external_ids:
+                    arxiv_id = p.external_ids.get("ArXiv")
+                    if arxiv_id:
+                        links.append(f"[arXiv](https://arxiv.org/abs/{arxiv_id})")
+                    doi = p.external_ids.get("DOI")
+                    if doi:
+                        links.append(f"[DOI](https://doi.org/{doi})")
+                if p.open_access_pdf_url:
+                    links.append(f"[PDF]({p.open_access_pdf_url})")
+                link_str = f" — {' · '.join(links)}" if links else ""
+                lines.append(f"**{i}. {title}**{year}{link_str}")
+                lines.append("")
+                # Authors
+                if p.authors:
+                    authors_str = ", ".join(p.authors[:4])
+                    if len(p.authors) > 4:
+                        authors_str += f" _et al._ (+{len(p.authors)-4})"
+                    lines.append(f"_{authors_str}_  ")
+                # Venue / journal
+                venue_parts: list[str] = []
+                if p.venue:
+                    venue_parts.append(p.venue)
+                if p.journal_name and p.journal_name != p.venue:
+                    venue_parts.append(p.journal_name)
+                if p.publication_types:
+                    pt = ", ".join(p.publication_types)
+                    venue_parts.append(f"`{pt}`")
+                if venue_parts:
+                    lines.append(f"{' · '.join(venue_parts)}  ")
+                # Citation velocity for this paper
+                if p.year:
+                    from datetime import datetime as _dt
+                    age = max(1, _dt.now().year - p.year + 1)
+                    velocity = p.citation_count / age
+                    lines.append(
+                        f"**{cites} citations** — {velocity:.1f} cites/yr  ")
+                else:
+                    lines.append(f"**{cites} citations**  ")
+                # TLDR
+                if academic_include_tldr and p.tldr:
+                    lines.append(f"")
+                    lines.append(f"> {p.tldr}")
+                    lines.append("")
+                lines.append("")
+            lines.append("</details>")
+            lines.append("")
+
     # Raw metrics — collapsible
     lines.append("<details>")
     lines.append("<summary><b>📊 Raw Metrics</b></summary>")
@@ -353,15 +504,22 @@ def _render_markdown(
     lines.append(f"| Stale PRs (>30d) | {maint.stale_prs} |")
     if metrics.commit_sha:
         lines.append(f"| Commit SHA | `{metrics.commit_sha}` |")
-    # Academic impact
+    # Academic impact (summary in raw metrics too)
     academic = getattr(metrics, "academic_impact", None)
     if academic and academic.paper_count > 0:
         lines.append(f"| Referenced papers | {academic.paper_count} |")
         lines.append(f"| Resolved papers | {academic.resolved_count} |")
-        lines.append(f"| Total citations | {academic.total_citations} |")
+        lines.append(f"| Total citations | {academic.total_citations:,} |")
         lines.append(
             f"| Avg citations/paper | {academic.avg_citations_per_paper:.1f} |"
         )
+        lines.append(
+            f"| Citation velocity | {academic.avg_citation_velocity:.1f} cites/yr |")
+        lines.append(
+            f"| h-index | {academic.h_index} |")
+        lines.append(
+            f"| Venue prestige | {academic.venue_prestige_score:.2f} |")
+        lines.append(f"| Impact tier | {academic.impact_tier} |")
         if academic.fields_of_study:
             fos = ", ".join(academic.fields_of_study[:5])
             if len(academic.fields_of_study) > 5:

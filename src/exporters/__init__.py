@@ -108,6 +108,10 @@ def export_report(
     metadata: ReportMetadata | None = None,
     environment_context: dict[str, Any] | None = None,
     hn_context: dict[str, Any] | None = None,
+    # Academic impact export options
+    academic_max_papers: int = 20,
+    academic_include_tldr: bool = True,
+    academic_include_unresolved: bool = False,
 ) -> Path:
     """Export a health report to disk.
 
@@ -131,6 +135,12 @@ def export_report(
         Optional local environment / weather context.
     hn_context:
         Optional Hacker News discussion context.
+    academic_max_papers:
+        Max referenced papers to include in Markdown/HTML exports (default: 20).
+    academic_include_tldr:
+        Include paper TLDRs in exports (default: True).
+    academic_include_unresolved:
+        Include unresolved paper references in exports (default: False).
 
     Returns
     -------
@@ -158,6 +168,9 @@ def export_report(
         metadata=metadata,
         environment_context=environment_context,
         hn_context=hn_context,
+        academic_max_papers=academic_max_papers,
+        academic_include_tldr=academic_include_tldr,
+        academic_include_unresolved=academic_include_unresolved,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

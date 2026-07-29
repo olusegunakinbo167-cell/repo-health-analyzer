@@ -1048,6 +1048,27 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest="skip_academic",
         help=argparse.SUPPRESS,  # override for --skip-academic when set in .repo-health.json
     )
+    # Academic impact export options
+    analyze.add_argument(
+        "--academic-max-papers",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Max referenced papers to include in Markdown/HTML exports "
+        "(default: 20, 0 = unlimited)",
+    )
+    analyze.add_argument(
+        "--academic-no-tldr",
+        action="store_true",
+        dest="academic_no_tldr",
+        help="Omit paper TLDRs from Markdown/HTML exports (shorter reports)",
+    )
+    analyze.add_argument(
+        "--academic-include-unresolved",
+        action="store_true",
+        dest="academic_include_unresolved",
+        help="Include unresolved paper references in exports (default: resolved only)",
+    )
     # New unified output options
     analyze.add_argument(
         "-o",
@@ -1390,6 +1411,11 @@ def cmd_analyze(args: argparse.Namespace) -> int:
             hn_context = None
 
     # ── Export handling ──
+    # Academic export options
+    academic_max_papers = getattr(args, "academic_max_papers", 20)
+    academic_include_tldr = not getattr(args, "academic_no_tldr", False)
+    academic_include_unresolved = getattr(args, "academic_include_unresolved", False)
+
     # New unified --output / -o flag
     output_path = getattr(args, "output", None)
     output_format = getattr(args, "output_format", "auto")
@@ -1416,6 +1442,9 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 metadata=metadata,
                 environment_context=environment_context,
                 hn_context=hn_context,
+                academic_max_papers=academic_max_papers,
+                academic_include_tldr=academic_include_tldr,
+                academic_include_unresolved=academic_include_unresolved,
             )
             wrote_output_file = True
         except Exception as exc:
@@ -1470,6 +1499,9 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 metadata=metadata,
                 environment_context=environment_context,
                 hn_context=hn_context,
+                academic_max_papers=academic_max_papers,
+                academic_include_tldr=academic_include_tldr,
+                academic_include_unresolved=academic_include_unresolved,
             )
             # If the path matches $GITHUB_STEP_SUMMARY, append
             if str(args.markdown) == os.getenv("GITHUB_STEP_SUMMARY", ""):
@@ -1507,6 +1539,9 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 metadata=metadata,
                 environment_context=environment_context,
                 hn_context=hn_context,
+                academic_max_papers=academic_max_papers,
+                academic_include_tldr=academic_include_tldr,
+                academic_include_unresolved=academic_include_unresolved,
             )
             html_output.parent.mkdir(parents=True, exist_ok=True)
             html_output.write_text(html_content, encoding="utf-8")
@@ -1539,6 +1574,9 @@ def cmd_analyze(args: argparse.Namespace) -> int:
                 metadata=metadata,
                 environment_context=environment_context,
                 hn_context=hn_context,
+                academic_max_papers=academic_max_papers,
+                academic_include_tldr=academic_include_tldr,
+                academic_include_unresolved=academic_include_unresolved,
             )
             print(json_output)
         except Exception:

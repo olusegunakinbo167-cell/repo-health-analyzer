@@ -1,0 +1,444 @@
+{
+  "journals/corr/vaswanispujgkp17": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "13756489": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "2963403868": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "arxiv:1706.03762": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "1706.03762": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "204e3073870fae3d05bcbc2f6a8e263d9b72e776": {
+    "timestamp": 1785338604.4250183,
+    "paper": {
+      "paperId": "204e3073870fae3d05bcbc2f6a8e263d9b72e776",
+      "corpusId": 13756489,
+      "title": "Attention is All you Need",
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+      "year": 2017,
+      "venue": "Neural Information Processing Systems",
+      "citationCount": 186592,
+      "influentialCitationCount": 20431,
+      "referenceCount": 41,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Computer Science"
+      ],
+      "externalIds": {
+        "MAG": "2963403868",
+        "DBLP": "journals/corr/VaswaniSPUJGKP17",
+        "ArXiv": "1706.03762",
+        "CorpusId": 13756489
+      },
+      "authors": [
+        {
+          "name": "Ashish Vaswani"
+        },
+        {
+          "name": "Noam Shazeer"
+        },
+        {
+          "name": "Niki Parmar"
+        },
+        {
+          "name": "Jakob Uszkoreit"
+        },
+        {
+          "name": "Llion Jones"
+        },
+        {
+          "name": "Aidan N. Gomez"
+        },
+        {
+          "name": "Lukasz Kaiser"
+        },
+        {
+          "name": "I. Polosukhin"
+        }
+      ],
+      "tldr": {
+        "text": "A new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely is proposed, which generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data."
+      },
+      "publicationTypes": [
+        "JournalArticle",
+        "Conference"
+      ],
+      "publicationDate": "2017-06-12",
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "ok": {
+    "timestamp": 1785339297.704972,
+    "paper": {
+      "paperId": "ok",
+      "corpusId": null,
+      "title": "OK",
+      "abstract": null,
+      "year": null,
+      "venue": null,
+      "citationCount": 0,
+      "influentialCitationCount": 0,
+      "referenceCount": 0,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [],
+      "externalIds": {},
+      "authors": [],
+      "tldr": null,
+      "publicationTypes": [],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "p1": {
+    "timestamp": 1785339297.8032968,
+    "paper": {
+      "paperId": "p1",
+      "corpusId": null,
+      "title": "Paper 1",
+      "abstract": null,
+      "year": 2020,
+      "venue": null,
+      "citationCount": 10,
+      "influentialCitationCount": 1,
+      "referenceCount": 5,
+      "isOpenAccess": true,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "CS"
+      ],
+      "externalIds": {},
+      "authors": [],
+      "tldr": null,
+      "publicationTypes": [],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  },
+  "p3": {
+    "timestamp": 1785339297.8049335,
+    "paper": {
+      "paperId": "p3",
+      "corpusId": null,
+      "title": "Paper 3",
+      "abstract": null,
+      "year": 2019,
+      "venue": null,
+      "citationCount": 30,
+      "influentialCitationCount": 3,
+      "referenceCount": 5,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Biology"
+      ],
+      "externalIds": {},
+      "authors": [],
+      "tldr": null,
+      "publicationTypes": [],
+      "publicationDate": null,
+      "journal": null,
+      "citationVelocity": null
+    }
+  }
+}

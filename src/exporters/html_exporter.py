@@ -26,6 +26,10 @@ class HTMLExporter:
         metadata: ReportMetadata | None = None,
         environment_context: dict[str, Any] | None = None,
         hn_context: dict[str, Any] | None = None,
+        # Academic impact export options
+        academic_max_papers: int = 20,
+        academic_include_tldr: bool = True,
+        academic_include_unresolved: bool = False,
     ) -> str:
         """Export a health report as HTML.
 
@@ -42,6 +46,9 @@ class HTMLExporter:
             metadata=metadata,
             environment_context=environment_context,
             hn_context=hn_context,
+            academic_max_papers=academic_max_papers,
+            academic_include_tldr=academic_include_tldr,
+            academic_include_unresolved=academic_include_unresolved,
         )
 
 
@@ -60,6 +67,9 @@ def _render_html(
     metadata: ReportMetadata | None = None,
     environment_context: dict[str, Any] | None = None,
     hn_context: dict[str, Any] | None = None,
+    academic_max_papers: int = 20,
+    academic_include_tldr: bool = True,
+    academic_include_unresolved: bool = False,
 ) -> str:
     """Render a self-contained HTML report."""
 
@@ -81,12 +91,13 @@ def _render_html(
     overall_status = score_label(health.total_score)
 
     # Build category rows
-    cat_keys = ("documentation", "maintenance", "ci_cd", "governance")
+    cat_keys = ("documentation", "maintenance", "ci_cd", "governance", "academic_impact")
     cat_objs = (
         health.documentation,
         health.maintenance,
         health.ci_cd,
         health.governance,
+        health.academic_impact,
     )
 
     category_rows = []
@@ -344,20 +355,119 @@ def _render_html(
         commit_sha_html = f"<tr><td>Commit SHA</td><td><code>{_h(metrics.commit_sha)}</code></td></tr>"
 
     # Academic impact (optional)
-    academic_html = ""
     academic = getattr(metrics, "academic_impact", None)
+    academic_card_html = ""
+    academic_html = ""
     if academic and getattr(academic, "paper_count", 0) > 0:
+        # Summary table for raw metrics
         fos = ", ".join(_h(f) for f in (academic.fields_of_study or [])[:5])
         if len(getattr(academic, "fields_of_study", []) or []) > 5:
             fos += ", …"
         academic_html = f"""
       <tr><td>Referenced papers</td><td>{academic.paper_count}</td></tr>
       <tr><td>Resolved papers</td><td>{academic.resolved_count}</td></tr>
-      <tr><td>Total citations</td><td>{academic.total_citations}</td></tr>
+      <tr><td>Total citations</td><td>{academic.total_citations:,}</td></tr>
       <tr><td>Avg citations/paper</td><td>{academic.avg_citations_per_paper:.1f}</td></tr>
+      <tr><td>Citation velocity</td><td>{academic.avg_citation_velocity:.1f} cites/yr</td></tr>
+      <tr><td>h-index</td><td>{academic.h_index}</td></tr>
+      <tr><td>Venue prestige</td><td>{academic.venue_prestige_score:.2f}</td></tr>
+      <tr><td>Impact tier</td><td><code>{_h(academic.impact_tier)}</code></td></tr>
       <tr><td>Fields of study</td><td>{fos}</td></tr>
       <tr><td>Open-access papers</td><td>{academic.open_access_count} / {academic.resolved_count}</td></tr>
       <tr><td>Recent papers (&lt;3yr)</td><td>{academic.recent_papers_count()}</td></tr>"""
+        # Dedicated academic impact card with paper list
+        tier = academic.impact_tier
+        tier_emoji = {"exceptional": "🌟", "high": "🔥", "moderate": "📈", "low": "📄", "none": "—"}.get(tier, "📄")
+        # Filter papers
+        if academic_include_unresolved:
+            papers_to_show = academic.papers_referenced
+        else:
+            papers_to_show = [rp for rp in academic.papers_referenced if rp.s2 is not None]
+        if academic_max_papers > 0 and len(papers_to_show) > academic_max_papers:
+            papers_to_show = papers_to_show[:academic_max_papers]
+            truncated = True
+        else:
+            truncated = False
+        paper_items = []
+        for i, rp in enumerate(papers_to_show, 1):
+            p = rp.s2
+            if not p:
+                ref = rp.reference
+                paper_items.append(
+                    f'<li class="paper-item"><strong>{i}. <code>{_h(ref.id_type)}:{_h(ref.paper_id)}</code></strong> <em>(unresolved)</em><br><span class="muted">Source: {_h(ref.source_file)}</span></li>'
+                )
+                continue
+            title = _h(p.title or "Untitled")
+            year_str = f" ({p.year})" if p.year else ""
+            cites = f"{p.citation_count:,}"
+            # Links
+            links = []
+            if p.external_ids:
+                arxiv_id = p.external_ids.get("ArXiv")
+                if arxiv_id:
+                    links.append(f'<a href="https://arxiv.org/abs/{_h(arxiv_id)}" target="_blank" rel="noopener">arXiv</a>')
+                doi = p.external_ids.get("DOI")
+                if doi:
+                    links.append(f'<a href="https://doi.org/{_h(doi)}" target="_blank" rel="noopener">DOI</a>')
+            if p.open_access_pdf_url:
+                links.append(f'<a href="{_h(p.open_access_pdf_url)}" target="_blank" rel="noopener">PDF</a>')
+            link_str = f" — {' · '.join(links)}" if links else ""
+            authors = ""
+            if p.authors:
+                authors_list = ", ".join(_h(a) for a in p.authors[:3])
+                if len(p.authors) > 3:
+                    authors_list += f" <em>et al.</em> (+{len(p.authors)-3})"
+                authors = f'<div class="paper-authors">{authors_list}</div>'
+            venue_parts = []
+            if p.venue:
+                venue_parts.append(_h(p.venue))
+            if p.journal_name and p.journal_name != p.venue:
+                venue_parts.append(_h(p.journal_name))
+            if p.publication_types:
+                venue_parts.append(f'<code>{", ".join(_h(t) for t in p.publication_types)}</code>')
+            venue_str = f'<div class="paper-venue">{" · ".join(venue_parts)}</div>' if venue_parts else ""
+            velocity_str = ""
+            if p.year:
+                from datetime import datetime as _dt
+                age = max(1, _dt.now().year - p.year + 1)
+                velocity = p.citation_count / age
+                velocity_str = f" — {velocity:.1f} cites/yr"
+            tldr_html = ""
+            if academic_include_tldr and p.tldr:
+                tldr_html = f'<blockquote class="paper-tldr">{_h(p.tldr)}</blockquote>'
+            paper_items.append(
+                f'<li class="paper-item">'
+                f'<div class="paper-title"><strong>{i}. {title}</strong>{year_str}{link_str}</div>'
+                f'{authors}{venue_str}'
+                f'<div class="paper-cites"><strong>{cites} citations</strong>{velocity_str}</div>'
+                f'{tldr_html}'
+                f'</li>'
+            )
+        truncated_note = ""
+        if truncated:
+            remaining = academic.paper_count - len(papers_to_show)
+            truncated_note = f'<p class="muted">… and {remaining} more papers not shown (use --academic-max-papers to increase limit)</p>'
+        venue_score = academic.venue_prestige_score
+        venue_label = "Top-tier" if venue_score >= 0.8 else "Conference" if venue_score >= 0.6 else "Mixed" if venue_score >= 0.3 else "Preprint"
+        academic_card_html = f"""
+    <section class="card">
+      <h2>📚 Academic Impact — {tier_emoji} <code>{_h(tier)}</code></h2>
+      <p><strong>Papers:</strong> {academic.resolved_count}/{academic.paper_count} resolved &nbsp;|&nbsp;
+         <strong>Citations:</strong> {academic.total_citations:,} &nbsp;|&nbsp;
+         <strong>Velocity:</strong> {academic.avg_citation_velocity:.1f} cites/yr &nbsp;|&nbsp;
+         <strong>h-index:</strong> {academic.h_index}</p>
+      <p><strong>Venue prestige:</strong> {venue_score:.2f} — {venue_label} &nbsp;|&nbsp;
+         <strong>Influential citations:</strong> {academic.total_influential_citations:,} ({academic.influential_ratio:.0%}) &nbsp;|&nbsp;
+         <strong>Open-access:</strong> {academic.open_access_count}/{academic.resolved_count} ({academic.open_access_ratio:.0%})</p>
+      {f"<p><strong>Fields:</strong> {fos}</p>" if fos else ""}
+      <details {"open" if len(paper_items) <= 3 else ""}>
+        <summary><strong>📖 Referenced Papers ({len([rp for rp in papers_to_show if rp.s2])} shown)</strong></summary>
+        <ol class="paper-list">
+          {''.join(paper_items)}
+        </ol>
+        {truncated_note}
+      </details>
+    </section>"""
 
     # Metadata footer
     meta_html = "Generated by repo-health-analyzer"
@@ -484,6 +594,26 @@ def _render_html(
   .hn-meta {{ color: var(--muted); font-size: 0.82rem; }}
   .hn-meta a {{ color: #3b82f6; text-decoration: none; }}
   .hn-meta a:hover {{ text-decoration: underline; }}
+  /* Academic impact papers */
+  .paper-list {{ padding-left: 1.4em; }}
+  .paper-item {{
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }}
+  .paper-item:last-child {{ border-bottom: none; }}
+  .paper-title {{ font-size: 0.93rem; margin-bottom: 4px; }}
+  .paper-authors {{ color: var(--muted); font-size: 0.82rem; font-style: italic; margin-bottom: 2px; }}
+  .paper-venue {{ color: var(--muted); font-size: 0.82rem; margin-bottom: 2px; }}
+  .paper-cites {{ font-size: 0.84rem; margin-bottom: 4px; }}
+  .paper-tldr {{
+    margin: 6px 0 2px 0;
+    padding: 8px 12px;
+    background: var(--code-bg);
+    border-left: 3px solid #3b82f6;
+    border-radius: 0 4px 4px 0;
+    font-size: 0.85rem;
+    color: var(--text);
+  }}
   footer {{
     text-align: center;
     color: var(--muted);
@@ -526,6 +656,7 @@ def _render_html(
 {plugin_html}
 {weather_html}
 {hn_html}
+{academic_card_html}
 
 <section class="card">
   <h2>Raw Metrics</h2>
