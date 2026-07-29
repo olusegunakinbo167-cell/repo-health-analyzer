@@ -11,6 +11,7 @@ import datetime
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import Any
 
 from ..semantic_scholar_client import S2Paper, SemanticScholarClient
 
@@ -110,10 +111,195 @@ def _context(text: str, start: int, end: int, radius: int = 60) -> str:
     return snippet
 
 
+# ----------------------------------------------------------------------
+# Structured citation file parsers (Phase 5)
+# ----------------------------------------------------------------------
+
+
+def _parse_citation_cff(text: str, source_file: str) -> list[PaperReference]:
+    """Parse CITATION.cff (YAML) for DOIs, URLs with arXiv/DOI.
+
+    CFF schema: https://citation-file-format.github.io/
+    We extract:
+    - identifiers[].type == "doi" → value
+    - url / repository-code / identifiers with arXiv links
+    - preferred-citation.doi
+
+    Falls back to regex scan if PyYAML is unavailable.
+    """
+    refs: list[PaperReference] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(pid: str, id_type: str) -> None:
+        key = (id_type, pid.lower())
+        if key in seen:
+            return
+        seen.add(key)
+        refs.append(PaperReference(
+            paper_id=pid,
+            id_type=id_type,
+            source_file=source_file,
+            context_snippet="CITATION.cff",
+        ))
+
+    # Try YAML parse first
+    try:
+        import yaml  # type: ignore
+        data = yaml.safe_load(text)
+        if isinstance(data, dict):
+            # Top-level DOI
+            doi = data.get("doi")
+            if isinstance(doi, str) and DOI_RE.search(doi):
+                m = DOI_RE.search(doi)
+                if m:
+                    add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+            # identifiers list
+            identifiers = data.get("identifiers", [])
+            if isinstance(identifiers, list):
+                for ident in identifiers:
+                    if not isinstance(ident, dict):
+                        continue
+                    itype = str(ident.get("type", "")).lower()
+                    ival = str(ident.get("value", ""))
+                    if itype == "doi" and ival:
+                        m = DOI_RE.search(ival)
+                        if m:
+                            add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+                    elif itype in ("arxiv", "other") and ival:
+                        m = ARXIV_RE.search(ival)
+                        if m:
+                            arxiv_id = m.group(1)
+                            version = m.group(2) or ""
+                            add(f"{arxiv_id}{version}".lower(), "arxiv")
+            # preferred-citation
+            pc = data.get("preferred-citation")
+            if isinstance(pc, dict):
+                pc_doi = pc.get("doi")
+                if isinstance(pc_doi, str):
+                    m = DOI_RE.search(pc_doi)
+                    if m:
+                        add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+            # Scan all string values for DOI/arXiv as fallback
+            def scan_obj(obj: Any, depth: int = 0) -> None:
+                if depth > 5:
+                    return
+                if isinstance(obj, str):
+                    for m in DOI_RE.finditer(obj):
+                        add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+                    for m in ARXIV_RE.finditer(obj):
+                        arxiv_id = m.group(1)
+                        version = m.group(2) or ""
+                        add(f"{arxiv_id}{version}".lower(), "arxiv")
+                elif isinstance(obj, dict):
+                    for v in obj.values():
+                        scan_obj(v, depth + 1)
+                elif isinstance(obj, list):
+                    for v in obj:
+                        scan_obj(v, depth + 1)
+            scan_obj(data)
+            return refs
+    except Exception:
+        pass
+
+    # Fallback: regex scan the raw CFF text
+    for m in DOI_RE.finditer(text):
+        add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+    for m in ARXIV_RE.finditer(text):
+        arxiv_id = m.group(1)
+        version = m.group(2) or ""
+        add(f"{arxiv_id}{version}".lower(), "arxiv")
+    return refs
+
+
+def _parse_citation_bib(text: str, source_file: str) -> list[PaperReference]:
+    """Parse BibTeX (.bib) for DOI / eprint (arXiv) / URL fields.
+
+    Supports common entry types: @article, @inproceedings, @misc, etc.
+    Extracts:
+    - doi = {...}
+    - eprint = {...}  (often arXiv ID)
+    - archivePrefix = "arXiv"
+    - url with doi.org / arxiv.org
+
+    Lightweight regex parser — no external bibtex dependency.
+    """
+    refs: list[PaperReference] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(pid: str, id_type: str) -> None:
+        key = (id_type, pid.lower())
+        if key in seen:
+            return
+        seen.add(key)
+        refs.append(PaperReference(
+            paper_id=pid,
+            id_type=id_type,
+            source_file=source_file,
+            context_snippet="CITATION.bib",
+        ))
+
+    # Find all @type{...} entries (naive, handles nested braces shallowly)
+    # Split by @ to get entries
+    entries = re.split(r"@\w+\s*\{", text)
+    for entry in entries[1:]:  # skip preamble
+        # Extract doi field
+        for m in re.finditer(r"doi\s*=\s*[\"\{]\s*([^\"\},]+)\s*[\"\}]", entry, re.IGNORECASE):
+            doi_val = m.group(1).strip()
+            dm = DOI_RE.search(doi_val)
+            if dm:
+                add(dm.group(0).lower().rstrip(".,;)]}"), "doi")
+        # Extract eprint / archivePrefix (arXiv)
+        eprint_m = re.search(r"eprint\s*=\s*[\"\{]\s*([^\"\},]+)\s*[\"\}]", entry, re.IGNORECASE)
+        archive_m = re.search(r"archiveprefix\s*=\s*[\"\{]\s*([^\"\},]+)\s*[\"\}]", entry, re.IGNORECASE)
+        if eprint_m:
+            eprint_val = eprint_m.group(1).strip()
+            # If archivePrefix is arXiv, treat eprint as arXiv ID
+            is_arxiv = archive_m and "arxiv" in archive_m.group(1).lower()
+            # Also try to match arXiv ID pattern directly
+            am = ARXIV_RE.search(eprint_val)
+            if am or is_arxiv:
+                if am:
+                    arxiv_id = am.group(1)
+                    version = am.group(2) or ""
+                    add(f"{arxiv_id}{version}".lower(), "arxiv")
+                else:
+                    # Bare arXiv ID in eprint field
+                    ev = eprint_val.strip()
+                    if re.match(r"^\d{4}\.\d{4,5}(v\d+)?$", ev) or re.match(r"^[a-z\-]+(?:\.[a-z\-]+)?/\d{7}(v\d+)?$", ev, re.I):
+                        add(ev.lower(), "arxiv")
+        # Extract URL field – may contain doi.org / arxiv.org links
+        for m in re.finditer(r"url\s*=\s*[\"\{]\s*([^\"\}]+)\s*[\"\}]", entry, re.IGNORECASE):
+            url_val = m.group(1)
+            dm = DOI_RE.search(url_val)
+            if dm:
+                add(dm.group(0).lower().rstrip(".,;)]}"), "doi")
+            am = ARXIV_RE.search(url_val)
+            if am:
+                arxiv_id = am.group(1)
+                version = am.group(2) or ""
+                add(f"{arxiv_id}{version}".lower(), "arxiv")
+
+    # Fallback: full-text regex scan for any missed DOIs/arXiv IDs
+    for m in DOI_RE.finditer(text):
+        add(m.group(0).lower().rstrip(".,;)]}"), "doi")
+    for m in ARXIV_RE.finditer(text):
+        arxiv_id = m.group(1)
+        version = m.group(2) or ""
+        add(f"{arxiv_id}{version}".lower(), "arxiv")
+
+    return refs
+
+
 def extract_paper_references(
     text: str, source_file: str = "unknown"
 ) -> list[PaperReference]:
     """Extract all paper references from a text blob.
+
+    For structured citation files, dispatches to specialized parsers:
+    - CITATION.cff → YAML CFF parser
+    - *.bib → BibTeX parser
+
+    Otherwise falls back to regex scanning for DOI / ArXiv / PMID / etc.
 
     Returns a de-duplicated list of PaperReference objects.
     If the same paper appears multiple times (e.g. DOI + ArXiv for
@@ -127,6 +313,13 @@ def extract_paper_references(
     Returns:
         List of PaperReference objects, de-duplicated by (id_type, paper_id).
     """
+    # Phase 5: structured citation file parsing
+    fname_lower = source_file.lower()
+    if fname_lower.endswith(".cff") or "citation.cff" in fname_lower:
+        return _parse_citation_cff(text, source_file)
+    if fname_lower.endswith(".bib"):
+        return _parse_citation_bib(text, source_file)
+
     seen: set[tuple[str, str]] = set()
     refs: list[PaperReference] = []
 
